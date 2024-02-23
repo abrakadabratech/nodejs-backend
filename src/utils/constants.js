@@ -36,6 +36,8 @@ const userRoles = {
   admin: "admin",
 };
 
+const allowed_types = ["free", "paid"];
+
 const adminAuthJwtKey = "admin-secret-key:)";
 const productBroadcastTopic = "new-product-broadcast";
 
@@ -50,4 +52,5 @@ module.exports = {
   adminAuthJwtKey,
   productBroadcastTopic,
   allUsersBroadcastTopic,
+  allowed_types,
 };
