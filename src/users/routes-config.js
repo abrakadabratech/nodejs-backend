@@ -11,6 +11,8 @@ const {
   updateUserv2,
   updateFcmToken,
   userOnboarding,
+  createUserDeletionRequest,
+  validateUser,
 } = require("./controller");
 const { isAuthenticated } = require("../auth/authenticated");
 
@@ -30,7 +32,14 @@ function authRoutesConfig(app) {
   app.get("/user/socialprofilelink", [isAuthenticated, getUserSocialLink]);
   app.put("/user/socialprofilelink", [isAuthenticated, updateUserSocialLink]);
   app.put("/user/geolocation", [isAuthenticated, updateGeolocation]);
+
+  app.post("/user/account/delete",[isAuthenticated,createUserDeletionRequest])
+  app.get("/user/profile/validate",[isAuthenticated,validateUser])
+  app.post("/user/deletion-request/cancel",[isAuthenticated,createUserDeletionRequest])
+  
   app.post("/user/logout", [isAuthenticated, logout]);
+
+
 }
 
 module.exports = { authRoutesConfig };

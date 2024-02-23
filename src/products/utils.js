@@ -1,5 +1,6 @@
 const admin = require("firebase-admin");
 const { db } = require("../utils/firebase");
+const { logger } = require("firebase-functions/v1");
 
 /**
  * Checks if the user is allowed to create a request on a product.
@@ -13,6 +14,7 @@ async function isRequestAllowed(userId) {
 
   if (!userDoc.exists) {
     // Create the doc with stat of zero
+    logger.log("REQ_C_0")
     await userRef.set({
       user_id: userId,
       request_count: 0,
@@ -21,9 +23,10 @@ async function isRequestAllowed(userId) {
     return true;
   }
 
-  const requestCount = userDoc.data().requestCount;
+  const requestCount = userDoc.data().request_count;
   const lastUpdated = userDoc.data().last_update_at.toDate();
   const currentDate = new Date();
+  logger.log("REQ_C",requestCount)
 
   // Check if the last updated is past the given date condition (12:00 am)
   if (
@@ -35,6 +38,8 @@ async function isRequestAllowed(userId) {
     )
   ) {
     // Reset the stats to 0
+    logger.log("REQ_C_0")
+
     await userRef.set({
       user_id: userId,
       request_count: 0,
@@ -78,7 +83,7 @@ async function decreaseRequestCount(userId) {
     return;
   }
 
-  const requestCount = userDoc.data().requestCount;
+  const requestCount = userDoc.data().request_count;
 
   if (requestCount <= 0) {
     // Request count is already 0, no need to decrease further

@@ -494,6 +494,7 @@ async function getProduct(req, res) {
       data: { id: productId, ...product },
     });
   } catch (error) {
+    functions.logger.error(error);
     handleError(req, res, error);
   }
 }
@@ -1140,6 +1141,7 @@ async function getProductCategories(req, res) {
 
 async function addProductRequest(req, res) {
   logDebug(req);
+  const app_version = parseInt(req.headers["app-version"]) || 0;
 
   try {
     const productId = req.params.productId;
@@ -1148,16 +1150,18 @@ async function addProductRequest(req, res) {
     const latitude = parseFloat(req.body.latitude);
     const longitude = parseFloat(req.body.longitude);
 
-    const isAllowed = await isRequestAllowed(userId);
+    if (app_version > 36) {
+      const isAllowed = await isRequestAllowed(userId);
 
-    if (isAllowed) {
-      return res.json({
-        code: 200,
-        status: 0,
-        error_code: "REQUEST_LIMIT_EXCEEDED",
-        response_message:
-          "Oops! It looks like you've reached your daily limit of two product requests. Don't worry, you'll be able to make new requests starting again at 12:00 AM tomorrow. We appreciate your enthusiasm and thank you for using our app! See you tomorrow for more exciting products.",
-      });
+      if (!isAllowed) {
+        return res.json({
+          code: 200,
+          status: 0,
+          error_code: "REQUEST_LIMIT_EXCEEDED",
+          response_message:
+            "Oops! It looks like you've reached your daily limit of two product requests. Don't worry, you'll be able to make new requests starting again at 12:00 AM tomorrow. We appreciate your enthusiasm and thank you for using our app! See you tomorrow for more exciting products.",
+        });
+      }
     }
 
     if (!latitude || !longitude || !message)
@@ -1215,7 +1219,9 @@ async function addProductRequest(req, res) {
         updated_at: firestore.FieldValue.serverTimestamp(),
       });
 
-      await addRequestCount(userId);
+      if (app_version > 36) {
+        await addRequestCount(userId);
+      }
 
       sendNotification(
         [productData.posted_by],
@@ -1636,19 +1642,30 @@ async function getProductRequest(req, res) {
 }
 
 async function verifyRequestAllowed(req, res) {
+  const app_version = parseInt(req.headers["app-version"]) || 0;
+  console.log(req.headers);
   try {
-    const isAllowed =await isRequestAllowed(res.locals.uid); 
-
-   const response={
-
-    user_id: res.locals.uid,
-    timestamp: new Date().toISOString(),
-    request_allowed: isAllowed,
-    
+    if (app_version < 36) {
+      const response = {
+        user_id: res.locals.uid,
+        timestamp: new Date().toISOString(),
+        request_allowed: true,
+        test:1
+      };
+      return res.json(response);
     }
-    if (isAllowed) {
-      response["error_code"]= "REQUEST_LIMIT_EXCEEDED",
-      response["user_message"]="Oops! It looks like you've reached your daily limit of two product requests. Don't worry, you'll be able to make new requests starting again at 12:00 AM tomorrow. We appreciate your enthusiasm and thank you for using our app! See you tomorrow for more exciting products."
+    const isAllowed = await isRequestAllowed(res.locals.uid);
+
+    const response = {
+      user_id: res.locals.uid,
+      timestamp: new Date().toISOString(),
+      request_allowed: isAllowed,
+    };
+    
+    if (!isAllowed) {
+      (response["error_code"] = "REQUEST_LIMIT_EXCEEDED"),
+        (response["user_message"] =
+          "Oops! It looks like you've reached your daily limit of two product requests. Don't worry, you'll be able to make new requests starting again at 12:00 AM tomorrow. We appreciate your enthusiasm and thank you for using our app! See you tomorrow for more exciting products.");
     }
     res.json(response);
   } catch (err) {

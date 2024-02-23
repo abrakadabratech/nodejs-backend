@@ -73,12 +73,28 @@ async function createNewUserv2(req, res) {
     const doc = await userRef.get();
 
     if (doc.exists) {
-      return res.status(201).send({
-        code: 201,
-        status: 1,
-        message: "User Login Success.",
-        data: { uid, method },
-      });
+      const deletionRequestDoc = await db
+        .collection("user-deletion-requests")
+        .doc(uid)
+        .get();
+      if (
+        deletionRequestDoc.exists &&
+        deletionRequestDoc.data().status === "pending"
+      ) {
+        return res.send({
+          status: 0,
+          code: 200,
+          error: true,
+          error_code: "USER_DELETION_REQUEST_ACTIVE",
+        });
+      } else {
+        return res.status(201).send({
+          code: 201,
+          status: 1,
+          message: "User Login Success.",
+          data: { uid, method },
+        });
+      }
     } else {
       // Create a new user document in Firestore
       if (method === "google") {
@@ -847,6 +863,108 @@ async function updateGeolocation(req, res) {
   }
 }
 
+async function createUserDeletionRequest(req, res) {
+  logFunctionInit(req);
+
+  const userId = res.locals.uid;
+  const deletionRequest = {
+    requested_at: firestore.FieldValue.serverTimestamp(),
+    status: "pending",
+  };
+
+  try {
+    const uid = res.locals.uid;
+    await db
+      .collection("user-deletion-requests")
+      .doc(userId)
+      .set(deletionRequest);
+
+    // Invalidate user's session
+    await admin.auth().revokeRefreshTokens(userId);
+
+    res.send({
+      success: true,
+      message:
+        "Your account deletion request is confirmed, and you've been logged out. You have 7 days to reverse this decision. Thank you for your time with us.",
+    });
+  } catch (err) {
+    handleError(req, res, err);
+  }
+}
+
+async function validateUser(req, res) {
+  logFunctionInit(req);
+
+  const userId = res.locals.uid;
+
+  try {
+    const deletionRequestDoc = await admin
+      .firestore()
+      .collection("user-deletion-requests")
+      .doc(userId)
+      .get();
+    if (
+      deletionRequestDoc.exists &&
+      deletionRequestDoc.data().status === "pending"
+    ) {
+      return res.send({
+        success: false,
+        message:
+          "To proceed with login, your existing account deletion request will be canceled. Continue to log in and keep your account active.",
+      });
+    }
+    // Proceed with login flow here, assuming authentication was already handled.
+    res.send({
+      success: true,
+      message: "Login successful.",
+      token: "new_auth_token",
+    });
+  } catch (error) {
+    handleError(req, res, err);
+  }
+}
+
+async function cancelUserDeletionRequest(req, res) {
+  logFunctionInit(req);
+
+  const userId = res.locals.uid; // Assuming userID is already set in res.locals
+
+  try {
+    const deletionRequestRef = admin
+      .firestore()
+      .collection("user-deletion-requests")
+      .doc(userId);
+    const deletionRequestDoc = await deletionRequestRef.get();
+
+    if (!deletionRequestDoc.exists) {
+      return res.status(404).send({
+        success: false,
+        message: "No active deletion request found for this account.",
+      });
+    }
+
+    if (deletionRequestDoc.data().status === "pending") {
+      await deletionRequestRef.update({
+        status: "cancelled",
+      });
+
+      res.send({
+        success: true,
+        message:
+          "Your account deletion request has been cancelled. You can now continue to log in.",
+      });
+    } else {
+      // If the request is found but not in a 'pending' state, inform the user appropriately
+      res.send({
+        success: false,
+        message: "Deletion request is not in a cancellable state.",
+      });
+    }
+  } catch (err) {
+    handleError(req, res, err);
+  }
+}
+
 async function logout(req, res) {
   logFunctionInit(req);
 
@@ -890,6 +1008,9 @@ module.exports = {
   getUserSocialLink,
   updateUser,
   updateUserSocialLink,
+  createUserDeletionRequest,
+  validateUser,
+  cancelUserDeletionRequest,
   updateGeolocation,
   logout,
 };
