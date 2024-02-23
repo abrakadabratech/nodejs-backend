@@ -13,17 +13,17 @@ const PROD_BUCKET_URL = "gs://akd-prod.appspot.com";
 var devServiceAccount = require("./admin-key-dev.json");
 var prodServiceAccount = require("./admin-key-prod.json");
 
-// const firebaseApp = admin.initializeApp({
-//   credential: admin.credential.cert(prodServiceAccount),
-//   databaseURL: PROD_DB_URL,
-//   storageBucket: PROD_BUCKET_URL,
-// });
-
 const firebaseApp = admin.initializeApp({
-  credential: admin.credential.cert(devServiceAccount),
-  databaseURL: DEV_DB_URL,
-  storageBucket: DEV_BUCKET_URL,
+  credential: admin.credential.cert(prodServiceAccount),
+  databaseURL: PROD_DB_URL,
+  storageBucket: PROD_BUCKET_URL,
 });
+
+// const firebaseApp = admin.initializeApp({
+//   credential: admin.credential.cert(devServiceAccount),
+//   databaseURL: DEV_DB_URL,
+//   storageBucket: DEV_BUCKET_URL,
+// });
 
 const db = getFirestore();
 const bucket = getStorage().bucket();
