@@ -390,6 +390,8 @@ async function getProducts(req, res) {
   // Get the user's location from the request
   const userLat = req.query.lat;
   const userLng = req.query.long;
+  const productType = req.query.type;
+  
   const data = {};
 
   if (!userLat || !userLng)
@@ -398,6 +400,14 @@ async function getProducts(req, res) {
       status: 0,
       response_message: "Invalid Location Coordinates ",
     });
+  
+    if (productType && !allowed_types.includes(productType)) {
+      return res.json({
+        code: 400,
+        status: 0,
+        response_message: "Invalid product type. Allowed types are: " + allowed_types.join(', '),
+      });
+    }
 
   try {
     const page = req.query.page || 1;
@@ -442,6 +452,12 @@ async function getProducts(req, res) {
       const categories = categoryId.split(",");
       data.category = categories;
       query = query.where("category", "in", categories);
+    }
+
+     // Filter by productType if provided
+     if (productType) {
+      query = query.where("type", "==", productType); // Add condition to filter by productType
+      data.type = productType; // Optionally add productType to the response data for clarity
     }
 
     if (sortBy === "latest") {
@@ -1967,6 +1983,8 @@ async function getMyProductListings(req, res) {
         name: product.name,
         image: product.images[0],
         status: product.status,
+        type: product.type,
+        price:product?.price || null,
         created_at: moment(new Date(product.timestamp._seconds * 1000)).format(
           "MMM Do"
         ),
@@ -2564,6 +2582,7 @@ async function getRazorpayKey(req, res) {
   });
 }
 
+// utils
 function handleError(req, res, err) {
   // functions.logger.error({ err, req });
   console.log(err);
