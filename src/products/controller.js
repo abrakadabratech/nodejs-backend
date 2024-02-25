@@ -441,7 +441,9 @@ async function getProducts(req, res) {
         "location_name",
         "timestamp",
         "display_image",
-        "posted_by"
+        "posted_by",
+        "type",
+        "price"
       )
       .where("status", "in", [productStatus.active, productStatus.hold])
       .where("is_active", "==", true);
@@ -528,6 +530,7 @@ async function getProducts(req, res) {
       );
       D.image = D.images[0];
       D.timestamp = D.timestamp._seconds;
+
       delete D.coordinates;
       delete D.images;
       result.push(D);

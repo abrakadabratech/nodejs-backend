@@ -3,7 +3,8 @@
   "description": "Cloud Functions for Firebase",
   "scripts": {
     "start": "node index.js",
-    "deploy:staging":"gcloud app deploy app.staging.yaml --project=abrakadabra-dev",
+    "start:dev": "nodemon index.js",
+    "deploy:dev":"gcloud app deploy app.dev.yaml --project=abrakadabra-dev",
     "deploy:production":"gcloud app deploy app.yaml --project=akd-prod"
   },
   "engines": {
