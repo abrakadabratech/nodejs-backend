@@ -4,8 +4,8 @@
   "scripts": {
     "start": "node index.js",
     "start:dev": "nodemon index.js",
-    "deploy:dev":"gcloud app deploy app.dev.yaml --project=abrakadabra-dev",
-    "deploy:production":"gcloud app deploy app.yaml --project=akd-prod"
+    "deploy:dev": "gcloud app deploy app.dev.yaml --project=abrakadabra-dev",
+    "deploy:production": "gcloud app deploy app.yaml --project=akd-prod"
   },
   "engines": {
     "node": "18"
@@ -35,6 +35,7 @@
     "openai": "^4.20.0",
     "papaparse": "^5.4.1",
     "razorpay": "^2.8.4",
+    "socket.io": "^4.7.4",
     "uuid": "^9.0.1",
     "uuid-v4": "^0.1.0",
     "validator": "^13.7.0"
