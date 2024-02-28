@@ -13,6 +13,7 @@ const {
   userOnboarding,
   createUserDeletionRequest,
   validateUser,
+  getUserPublicProfile,
 } = require("./controller");
 const { isAuthenticated } = require("../auth/authenticated");
 
@@ -29,6 +30,10 @@ function authRoutesConfig(app) {
   app.post("/user", [isAuthenticated, newUser]);
   app.put("/user", [isAuthenticated, updateUser]);
   app.put("/user/profileimage", [isAuthenticated, uploadAvatar]);
+
+  app.get("/user/public-profile/:id", [isAuthenticated, getUserPublicProfile]);
+
+  
   app.get("/user/socialprofilelink", [isAuthenticated, getUserSocialLink]);
   app.put("/user/socialprofilelink", [isAuthenticated, updateUserSocialLink]);
   app.put("/user/geolocation", [isAuthenticated, updateGeolocation]);

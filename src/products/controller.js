@@ -18,6 +18,7 @@ const {
   userStatus,
   feedbackType,
   productBroadcastTopic,
+  allowed_types,
 } = require("../utils/constants");
 const {
   isRequestAllowed,
@@ -73,151 +74,6 @@ async function uploadFileToStorage(req, res) {
   }
 }
 
-// async function createNewProduct(req, res) {
-//   try {
-//     const user = await db.collection("users").doc(res.locals.uid).get();
-
-//     if (user.data().status !== userStatus.active) {
-//       return res.json({
-//         code: 401,
-//         status: 0,
-//         response_message: "Profile verification needed to post a product.",
-//       });
-//     }
-
-//     const form = new formidable.IncomingForm();
-//     form.parse(req, async (err, fields, files) => {
-//       if (err) {
-//         return res.json({
-//           code: 500,
-//           status: 0,
-//           response_message: "Error while parsing form data",
-//         });
-//       } else {
-//         const {
-//           name,
-//           description,
-//           condition,
-//           used_for,
-//           location_name,
-//           category,
-//           latitude,
-//           longitude,
-//           price,
-//           brand,
-//         } = fields;
-
-//         const displayImage = files["display_image"];
-//         const productImages = Object.values(files).filter(
-//           (file) => file !== displayImage
-//         );
-
-//         if (!displayImage) {
-//           return res.json({
-//             code: 400,
-//             status: 0,
-//             response_message: "Please upload a display image",
-//           });
-//         }
-
-//         if (productImages.length < 1 || productImages.length > 3) {
-//           return res.json({
-//             code: 400,
-//             status: 0,
-//             response_message: "Please upload between 1 to 3 product images",
-//           });
-//         }
-
-//         if (
-//           !name ||
-//           !description ||
-//           !condition ||
-//           !used_for ||
-//           !location_name ||
-//           !category ||
-//           !latitude ||
-//           !longitude
-//         ) {
-//           return res.json({
-//             code: 400,
-//             status: 0,
-//             response_message:
-//               "All fields are required (name, description, condition, used_for, location_name, category, latitude, longitude)",
-//           });
-//         }
-
-//         const productRef = db.collection("products").doc();
-//         const productId = productRef.id;
-
-//         let filePaths = [];
-//         let fileurls = [];
-//         let uploadErr = false;
-//         const allFiles = [displayImage, ...productImages];
-
-//         for (let file of allFiles) {
-//           if (
-//             file.type.split("/")[0] !== "image" ||
-//             Math.ceil(file.size / (1024 * 1024)) > 2
-//           ) {
-//             uploadErr = true;
-//             break;
-//           }
-//           const fileExt = file.name.split(".").pop();
-//           const filePath = `products/${productId}/image_${file.name}.${fileExt}`;
-//           const response = await bucket.upload(file.path, {
-//             gzip: true,
-//             destination: filePath,
-//             public: true,
-//           });
-//           const url = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
-//           fileurls.push(url);
-//           filePaths.push(filePath);
-//         }
-
-//         if (uploadErr) {
-//           filePaths.forEach((file) => bucket.file(file).delete());
-//           return res.json({
-//             code: 400,
-//             status: 0,
-//             response_message:
-//               "Uploaded file should be an image and should be less than 2MB.",
-//           });
-//         }
-
-//         const newProduct = {
-//           name: name.toLowerCase(),
-//           description,
-//           condition,
-//           used_for,
-//           price: parseInt(price) || 0,
-//           brand,
-//           location_name,
-//           category,
-//           cost_saving: parseInt(price) || 0,
-//           energy_saving: 0,
-//           images: fileurls,
-//           display_image: fileurls[0], // The display image
-//           posted_by: res.locals.uid,
-//           status: productStatus.active,
-//           coordinates: new firebase.firestore.GeoPoint(latitude, longitude),
-//           timestamp: firestore.FieldValue.serverTimestamp(),
-//         };
-
-//         await productRef.set(newProduct);
-//         res.json({
-//           code: 201,
-//           status: 0,
-//           response_message: "Your Product Successfully Posted",
-//           data: { productId },
-//         });
-//       }
-//     });
-//   } catch (err) {
-//     console.log(err);
-//     handleError(req, res, err);
-//   }
-// }
-
 async function createNewProduct(req, res) {
   try {
     const user = await db.collection("users").doc(res.locals.uid).get();
@@ -247,6 +103,7 @@ async function createNewProduct(req, res) {
           category,
           latitude,
           longitude,
+          type,
           price,
           brand,
         } = fields;
@@ -258,13 +115,14 @@ async function createNewProduct(req, res) {
           !location_name ||
           !category ||
           !latitude ||
+          !type ||
           !longitude
         ) {
           res.json({
             code: 400,
             status: 0,
             response_message:
-              "All fields are required (name, description, condition, used_for, location_name, category, latitude, longitude",
+              "All fields are required (name, description, condition, used_for, location_name, category, latitude, longitude, type)",
           });
         } else if (Object.keys(files).length === 0) {
           res.json({
@@ -279,6 +137,27 @@ async function createNewProduct(req, res) {
             response_message: "Maximum of four files are allowed",
           });
         } else {
+          if (!allowed_types.includes(type)) {
+            return res.json({
+              code: 400,
+              status: 0,
+              response_message: "Error: Invalid Allowed Product Type",
+            });
+          }
+
+          // If the type is 'paid', check for the price
+          if (type === "paid") {
+            // Check if price is provided and is a number greater than 0
+            if (typeof inputPrice !== "number" || inputPrice <= 0) {
+              return res.json({
+                code: 400,
+                status: 0,
+                response_message:
+                  "Error: Price should be greater than 0 for type paid products",
+              });
+            }
+          }
+
           // formatting data
           name = name.toLowerCase();
           latitude = parseFloat(latitude);
@@ -354,6 +233,7 @@ async function createNewProduct(req, res) {
               description,
               condition,
               used_for,
+              type,
               price: parseInt(price) || 0,
               brand,
               location_name,
@@ -370,6 +250,10 @@ async function createNewProduct(req, res) {
               updated_at: firestore.FieldValue.serverTimestamp(),
               display_image: fileurls[0],
             };
+
+            if (type === "paid") {
+              newProduct["currency"] = "INR";
+            }
 
             functions.logger.log(
               `product-created-coordinates-log lat-${latitude} lng-${longitude}`
@@ -506,6 +390,8 @@ async function getProducts(req, res) {
   // Get the user's location from the request
   const userLat = req.query.lat;
   const userLng = req.query.long;
+  const productType = req.query.type;
+  
   const data = {};
 
   if (!userLat || !userLng)
@@ -514,6 +400,14 @@ async function getProducts(req, res) {
       status: 0,
       response_message: "Invalid Location Coordinates ",
     });
+  
+    if (productType && !allowed_types.includes(productType)) {
+      return res.json({
+        code: 400,
+        status: 0,
+        response_message: "Invalid product type. Allowed types are: " + allowed_types.join(', '),
+      });
+    }
 
   try {
     const page = req.query.page || 1;
@@ -547,7 +441,9 @@ async function getProducts(req, res) {
         "location_name",
         "timestamp",
         "display_image",
-        "posted_by"
+        "posted_by",
+        "type",
+        "price"
       )
       .where("status", "in", [productStatus.active, productStatus.hold])
       .where("is_active", "==", true);
@@ -558,6 +454,12 @@ async function getProducts(req, res) {
       const categories = categoryId.split(",");
       data.category = categories;
       query = query.where("category", "in", categories);
+    }
+
+     // Filter by productType if provided
+     if (productType) {
+      query = query.where("type", "==", productType); // Add condition to filter by productType
+      data.type = productType; // Optionally add productType to the response data for clarity
     }
 
     if (sortBy === "latest") {
@@ -628,6 +530,7 @@ async function getProducts(req, res) {
       );
       D.image = D.images[0];
       D.timestamp = D.timestamp._seconds;
+
       delete D.coordinates;
       delete D.images;
       result.push(D);
@@ -1650,7 +1553,7 @@ async function verifyRequestAllowed(req, res) {
         user_id: res.locals.uid,
         timestamp: new Date().toISOString(),
         request_allowed: true,
-        test:1
+        test: 1,
       };
       return res.json(response);
     }
@@ -1661,7 +1564,7 @@ async function verifyRequestAllowed(req, res) {
       timestamp: new Date().toISOString(),
       request_allowed: isAllowed,
     };
-    
+
     if (!isAllowed) {
       (response["error_code"] = "REQUEST_LIMIT_EXCEEDED"),
         (response["user_message"] =
@@ -2083,6 +1986,8 @@ async function getMyProductListings(req, res) {
         name: product.name,
         image: product.images[0],
         status: product.status,
+        type: product.type,
+        price:product?.price || null,
         created_at: moment(new Date(product.timestamp._seconds * 1000)).format(
           "MMM Do"
         ),
@@ -2680,6 +2585,7 @@ async function getRazorpayKey(req, res) {
   });
 }
 
+// utils
 function handleError(req, res, err) {
   // functions.logger.error({ err, req });
   console.log(err);
