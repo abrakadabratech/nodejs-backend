@@ -36,7 +36,13 @@ const userRoles = {
   admin: "admin",
 };
 
-const allowed_types = ["free", "paid"];
+// const allowed_types = ["free", "paid", "all"];
+
+const allowed_types = {
+  free: ["free"],
+  paid: ["paid"],
+  all: ["free", "paid"],
+};
 
 const adminAuthJwtKey = "admin-secret-key:)";
 const productBroadcastTopic = "new-product-broadcast";
