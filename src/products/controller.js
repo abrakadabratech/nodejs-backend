@@ -137,7 +137,7 @@ async function createNewProduct(req, res) {
             response_message: "Maximum of four files are allowed",
           });
         } else {
-          if (!allowed_types.includes(type)) {
+          if (!Object.keys(allowed_types).includes(type)) {
             return res.json({
               code: 400,
               status: 0,
@@ -262,7 +262,7 @@ async function createNewProduct(req, res) {
             );
             await productRef.set(newProduct);
 
-            res.json({
+           return res.json({
               code: 201,
               status: 0,
               response_message: "Your Product Successfully Posted",
