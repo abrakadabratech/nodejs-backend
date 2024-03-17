@@ -659,6 +659,7 @@ async function getUserPublicProfile(req, res) {
     return res.status(500).json({ error: "Internal server error" });
   }
 }
+
 // async function uploadAvatar(req, res) {
 
 //   const uid = res.locals.uid;
@@ -1082,6 +1083,7 @@ async function getGiverChatProductList(req, res) {
 }
 
 
+
 // chats handling end
 
 // user logout function
@@ -1116,6 +1118,7 @@ function logFunctionInit(req) {
   if (req.headers.logging)
     info(`Requested ${req.path}`, { query_params: req.query, body: req.body });
 }
+
 
 module.exports = {
   createNewUserv2,
