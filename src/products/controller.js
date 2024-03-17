@@ -262,7 +262,7 @@ async function createNewProduct(req, res) {
             );
             await productRef.set(newProduct);
 
-            res.json({
+           return res.json({
               code: 201,
               status: 0,
               response_message: "Your Product Successfully Posted",
