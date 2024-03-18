@@ -2632,6 +2632,8 @@ function safeDelete(obj, prop) {
     delete obj[prop];
   }
 }
+
+
 module.exports = {
   uploadFileToStorage,
   createNewProduct,
