@@ -1366,7 +1366,7 @@ async function getReceiverChatsList(req, res) {
 }
 
 async function blockUserChat(req, res) {
-  const { block_user } = req.body;
+  const { block_user, reason } = req.body;
   const { uid } = res.locals; // Assumed to be set by authentication middleware
 
   // Validate request body
@@ -1420,6 +1420,7 @@ async function blockUserChat(req, res) {
       blocker_id: uid,
       blocked_id: block_user,
       created_at: firestore.FieldValue.serverTimestamp(),
+      reason,
     });
 
     // Respond with success message
@@ -1440,14 +1441,15 @@ async function blockUserChat(req, res) {
 
 async function reportUserChat(req, res) {
   const chat_id = req.params.chat_id;
-  const { uid } = res.locals; 
+  const reason = req.body.reason;
+  const { uid } = res.locals;
 
   // Validate request body
-  if (!chat_id) {
+  if (!chat_id || !reason) {
     return res.status(400).json({
       code: 400,
       status: 0,
-      message: "Invalid request: 'chat_id' is required.",
+      message: "Invalid Request Parameters",
     });
   }
 
@@ -1479,6 +1481,7 @@ async function reportUserChat(req, res) {
     await reportRef.set({
       chat_id: chat_id,
       reported_by: uid,
+      reason,
       timestamp: firestore.FieldValue.serverTimestamp(),
     });
 
