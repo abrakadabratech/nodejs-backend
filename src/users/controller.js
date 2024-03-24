@@ -1148,7 +1148,7 @@ async function initiateProductChat(req, res) {
 async function getGiverChatProductList(req, res) {
   const { pageNumber = 1, pageSize = 10 } = req.query;
   const { uid } = res.locals;
-  const numericPageNumber = parseInt(pageNumber, 1);
+  const numericPageNumber = parseInt(pageNumber, 10); // Fixed the radix parameter to 10
   const numericPageSize = parseInt(pageSize, 10);
 
   try {
@@ -1156,16 +1156,17 @@ async function getGiverChatProductList(req, res) {
     let query = db
       .collection("products")
       .where("posted_by", "==", uid)
-      .orderBy("timestamp", "desc")
+      .orderBy("timestamp", "desc") // Assuming 'timestamp' is the correct field name for last chat activity
       .limit(numericPageSize);
 
     // Handle pagination (if pageNumber > 1)
     if (numericPageNumber > 1) {
+      const skipCount = (numericPageNumber - 1) * numericPageSize;
       const startAtDocument = await db
         .collection("products")
-        .where("userId", "==", userId)
-        .orderBy("lastActivity", "desc")
-        .limit((numericPageNumber - 1) * numericPageSize)
+        .where("posted_by", "==", uid) // Changed from 'userId' to 'uid'
+        .orderBy("timestamp", "desc") // Assuming 'timestamp' is the correct field name for last chat activity
+        .limit(skipCount)
         .get();
 
       const lastVisible = startAtDocument.docs[startAtDocument.docs.length - 1];
@@ -1174,33 +1175,48 @@ async function getGiverChatProductList(req, res) {
 
     const productsSnapshot = await query.get();
 
-    // Step 2: For each product, count its active chats
+    // Step 2: For each product, count its active and unseen chats
     const productsWithChatCounts = await Promise.all(
       productsSnapshot.docs.map(async (doc) => {
         const productData = doc.data();
-        const chatCountSnapshot = await db
-          .collection("activeChats")
-          .where("productId", "==", doc.id)
+        const chatsQuery = db.collection("chats").where("product_id", "==", doc.id);
+
+        // Count total active chats
+        const chatCountSnapshot = await chatsQuery.get();
+
+        // Count unseen chats
+        const unseenChatsSnapshot = await chatsQuery
+          .where("seen", "==", false) // Assuming 'seen' is a boolean field indicating if a chat is seen
           .get();
 
         return {
-          ...productData,
-          chatCount: chatCountSnapshot.size,
+          id: doc.id,
+          name: productData.name,
+          description: productData.description,
+          product_image: productData.display_image,
+          timestamp: productData.timestamp,
+          chat_count: chatCountSnapshot.size,
+          unseen_chats: unseenChatsSnapshot.size,
         };
       })
     );
 
     // Return the paginated list of products with chat counts
     res.status(200).json({
-      pageNumber: numericPageNumber,
-      pageSize: numericPageSize,
-      products: productsWithChatCounts,
+      code: 200,
+      status: 1,
+      data: {
+        pageNumber: numericPageNumber,
+        pageSize: numericPageSize,
+        products: productsWithChatCounts,
+      },
     });
   } catch (error) {
     console.error("Error fetching products and chat counts:", error);
     res.status(500).send("Error fetching products and chat counts.");
   }
 }
+
 
 async function getGiverProductChats(req, res) {
   const productId = req.params.id; // Get the product ID from the URL parameter

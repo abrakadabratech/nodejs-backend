@@ -22,6 +22,7 @@ const {
   initiateProductChat,
   reportUserChat,
   closeUserChat,
+  getReceiverChatsList,
 } = require("./controller");
 const { isAuthenticated } = require("../auth/authenticated");
 
