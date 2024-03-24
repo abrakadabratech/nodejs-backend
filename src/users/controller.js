@@ -1114,11 +1114,11 @@ async function initiateProductChat(req, res) {
       product_id: productId,
       product_image: productData.display_image,
       product_receiver: uid,
-      receiver_avatar: receiverData.avatar,
+      receiver_avatar: receiverData.user_avatar,
       receiver_id: uid,
       receiver_name: receiverData.name,
       requestId: "",
-      sender_avatar: senderData.avatar,
+      sender_avatar: senderData.user_avatar,
       sender_id: giverId,
       sender_name: senderData.name,
       status: "active",
@@ -1136,7 +1136,7 @@ async function initiateProductChat(req, res) {
       },
     });
   } catch (error) {
-    console.error("Error initiating chat:", error);
+    functions.logger.error("Error initiating chat:", error);
     res.status(500).json({
       code: 500,
       status: 1,
@@ -1212,7 +1212,7 @@ async function getGiverChatProductList(req, res) {
       },
     });
   } catch (error) {
-    console.error("Error fetching products and chat counts:", error);
+    functions.logger.error("Error fetching products and chat counts:", error);
     res.status(500).send("Error fetching products and chat counts.");
   }
 }
@@ -1508,7 +1508,7 @@ async function reportUserChat(req, res) {
       message: "Chat reported successfully.",
     });
   } catch (error) {
-    console.error("Error reporting chat:", error);
+    functions.logger.error("Error reporting chat:", error);
     res.status(500).json({
       code: 500,
       status: 0,
@@ -1555,7 +1555,7 @@ async function closeUserChat(req, res) {
       message: "Chat closed successfully.",
     });
   } catch (error) {
-    console.error("Error closing chat:", error);
+    functions.logger.error("Error closing chat:", error);
     res.status(500).json({
       code: 500,
       status: 0,
@@ -1633,7 +1633,7 @@ async function getMyBlockedList(req, res) {
       },
     });
   } catch (error) {
-    console.error("Error retrieving blocked users:", error);
+    functions.logger.error("Error retrieving blocked users:", error);
     res.status(500).json({
       code: 500,
       status: 0,
@@ -1695,7 +1695,7 @@ async function unBlockUserChat(req, res) {
       message: "User unblocked successfully.",
     });
   } catch (error) {
-    console.error("Error unblocking user:", error); // Log the error
+    functions.logger.error("Error unblocking user:", error); // Log the error
     res.status(500).json({
       code: 500,
       status: 0,
