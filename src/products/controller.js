@@ -169,6 +169,21 @@ async function createNewProduct(req, res) {
           // const geohash = geofire.geohashForLocation([latitude, longitude]);
 
           try {
+            // validate category exists
+            const categoryRef = db
+              .collection("product_categories")
+              .doc(category);
+
+            const categorySnapshot = await categoryRef.get();
+
+            if (!categorySnapshot.exists) {
+              return res.json({
+                code: 400,
+                status: 0,
+                response_message: "Invalid Category ID for Product",
+              });
+            }
+
             const productRef = db.collection("products").doc();
 
             const productId = productRef.id;
@@ -262,7 +277,7 @@ async function createNewProduct(req, res) {
             );
             await productRef.set(newProduct);
 
-           return res.json({
+            return res.json({
               code: 201,
               status: 0,
               response_message: "Your Product Successfully Posted",
@@ -333,10 +348,26 @@ async function getProduct(req, res) {
       if (requestSnapshot.empty) {
         product.isRequested = false;
         product.requestAccepted = false;
+        product.chat_node = null;
+
       } else {
         const status = requestSnapshot.docs[0].data().status;
         product.isRequested = true;
         product.requestAccepted = status === requestStatus.accepted;
+
+        // if requested find chat node
+        const chatNodeRef = db
+          .collection("chats")
+          .where("product_id", "==", productId)
+          .where("receiver_id", "==", userId);
+
+        const chatNodesnapshot = await chatNodeRef.limit(1).get();
+
+        if (!chatNodesnapshot.empty) {
+          product.chat_node = chatNodesnapshot.docs[0].id;
+        } else {
+          product.chat_node = null;
+        }
       }
     } else {
       product.isRequested = false;
@@ -1341,7 +1372,17 @@ async function getProductRequestDetail(req, res) {
     const categoryRef = db
       .collection("product_categories")
       .doc(updatedProductData.category);
+
     const categorySnapshot = await categoryRef.get();
+
+    if (!categorySnapshot.exists) {
+      return res.json({
+        code: 400,
+        status: 0,
+        response_message: "Invalid Category ID for Product",
+      });
+    }
+
     const categoryData = categorySnapshot.data();
 
     updatedProductData.category = {
@@ -1528,6 +1569,19 @@ async function getProductRequest(req, res) {
     safeDelete(requestData, "productId");
     safeDelete(requestData, "updatedAt");
 
+    // chat node
+    let chatNode = null;
+    const chatNodeRef = db
+      .collection("chats")
+      .where("product_id", "==", productRef.id)
+      .where("receiver_id", "==", requestData.userId);
+
+    const chatNodesnapshot = await chatNodeRef.limit(1).get();
+
+    if (!chatNodesnapshot.empty) {
+      chatNode = chatNodesnapshot.docs[0].id;
+    }
+
     const updatedProductData = {
       request_id: requestId,
       product: {
@@ -1536,6 +1590,7 @@ async function getProductRequest(req, res) {
       },
       receiver_info: { ...user },
       request: { ...requestData },
+      chat_node: chatNode
     };
 
     return res.json({
@@ -2145,6 +2200,17 @@ async function getRequestwithId(req, res) {
       name: categoryData.name,
     };
 
+    let chatNode = null;
+
+    const chatDocSnapshot = await db.collection("chats").where("product_id", "==", requestData.productId).where("receiver_id", "==", requestData.userId).get()
+
+    if (!chatDocSnapshot.empty) {
+      // Assuming you're interested in the first document found
+      const document = chatDocSnapshot.docs[0];
+      chatNode = document.id;
+    }
+
+
     // clear unwanted product data from response
     delete productData.timestamp;
     delete productData.coordinates;
@@ -2175,6 +2241,7 @@ async function getRequestwithId(req, res) {
         request_message: requestData.message,
         isReceived: requestData.isReceived,
         isDelivered: requestData.isDelivered,
+        chat_node: chatNode
       },
     });
   } catch (error) {
@@ -2300,7 +2367,7 @@ async function submitFeedback(req, res) {
       (parseInt(pickup_convenience) +
         parseInt(receiver_reliability) +
         parseInt(pick_up_timeliness)) /
-        3
+      3
     );
 
     await db.collection("feedbacks").add({
@@ -2353,7 +2420,7 @@ async function submitFeedback(req, res) {
       (parseInt(delivery_convenience) +
         parseInt(giver_responsiveness) +
         parseInt(product_satisfaction)) /
-        3
+      3
     );
 
     await db.collection("feedbacks").add({
@@ -2632,7 +2699,6 @@ function safeDelete(obj, prop) {
     delete obj[prop];
   }
 }
-
 
 module.exports = {
   uploadFileToStorage,

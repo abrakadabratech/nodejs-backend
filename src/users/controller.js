@@ -1030,7 +1030,9 @@ async function cancelUserDeletionRequest(req, res) {
 
 async function initiateProductChat(req, res) {
   const productId = req.params.id;
-  const { uid } = res.locals; // Receiver's UID set by authentication middleware
+  const { uid } = res.locals; 
+  const { request_id } = req.body; 
+  
 
   try {
     // Fetch product details to get the giver's UID and other product info
@@ -1117,7 +1119,7 @@ async function initiateProductChat(req, res) {
       receiver_avatar: receiverData.user_avatar,
       receiver_id: uid,
       receiver_name: receiverData.name,
-      requestId: "",
+      requestId: request_id,
       sender_avatar: senderData.user_avatar,
       sender_id: giverId,
       sender_name: senderData.name,
@@ -1186,7 +1188,7 @@ async function getGiverChatProductList(req, res) {
 
         // Count unseen chats
         const unseenChatsSnapshot = await chatsQuery
-          .where("seen", "==", false) // Assuming 'seen' is a boolean field indicating if a chat is seen
+          .where("seen", "==", false) 
           .get();
 
         return {
@@ -1243,7 +1245,7 @@ async function getGiverProductChats(req, res) {
       .collection("chats")
       .where("product_giver", "==", uid)
       .where("product_id", "==", productId)
-      .orderBy("timestamp", "desc")
+      .orderBy("time_stamp", "desc")
       .limit(numericPageSize);
 
     // Handle pagination
@@ -1259,7 +1261,7 @@ async function getGiverProductChats(req, res) {
 
         // Fetch the messages to count unread messages
         const messagesSnapshot = await doc.ref
-          .collection("messages")
+          .collection("Messages")
           .where("receiverId", "==", uid)
           .where("read", "==", false)
           .get();
@@ -1279,7 +1281,8 @@ async function getGiverProductChats(req, res) {
           product_image: productData.display_image, // Use the display_image from product data
           product_name: productData.name,
           last_message: chatData.last_message,
-          unseen_messages: unseenMessages, // Dynamically fetched count of unseen messages
+          unseen_messages: unseenMessages, 
+          is_user_blocked:false
         };
       })
     );
@@ -1319,7 +1322,7 @@ async function getReceiverChatsList(req, res) {
     let query = db
       .collection("chats")
       .where("product_receiver", "==", uid)
-      .orderBy("timestamp", "desc")
+      .orderBy("time_stamp", "desc")
       .limit(numericPageSize);
 
     // Handle pagination
@@ -1337,7 +1340,7 @@ async function getReceiverChatsList(req, res) {
         const messagesSnapshot = await db
           .collection("chats")
           .doc(doc.id)
-          .collection("messages")
+          .collection("Messages")
           .where("receiverId", "==", uid)
           .where("read", "==", false)
           .get();
@@ -1358,6 +1361,7 @@ async function getReceiverChatsList(req, res) {
           product_name: chatData.product,
           last_message: chatData.last_message,
           unseen_messages: unseenMessages,
+          is_user_blocked:false
         };
       })
     );
