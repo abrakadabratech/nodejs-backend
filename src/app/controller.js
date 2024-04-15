@@ -1,7 +1,12 @@
 const { app, logger } = require("firebase-functions/v1");
-const { db, bucket } = require("../utils/firebase");
 const Joi = require("joi");
 const { firestore } = require("firebase-admin");
+const crypto = require('crypto');
+const axios = require('axios');
+
+const { db, bucket } = require("../utils/firebase");
+const { PAYMENT_REQUEST } = require("../utils/phonepe/constants");
+const { Console } = require("console");
 
 async function getAppSupportData(req, res) {
   try {
@@ -281,6 +286,112 @@ async function deleteNotifications(req, res) {
   }
 }
 
+// phonepe pg integration
+async function initPayment(req, res) {
+  try {
+    const user_id = res.locals.uid;
+    const merchantTransactionId = 'M' + Date.now();
+    const { amount } = req.body;
+
+    if (!amount || amount < 0) {
+      return res.status(400).send({ code: 400, status: 0, message: "Invalid Amount" })
+    }
+
+    const hostUrl = req.headers.host;
+    const data = {
+      merchantId: process.env.PHONEPE_MERCHANT_ID,
+      merchantTransactionId: merchantTransactionId,
+      merchantUserId: 'MUID' + user_id,
+      amount: amount * 100,
+      redirectUrl: `http://${hostUrl}/app/payment/status/${merchantTransactionId}/${user_id}`,
+      redirectMode: 'POST',
+      paymentInstrument: {
+        type: 'PAY_PAGE'
+      }
+    };
+    const payload = JSON.stringify(data);
+    const payloadMain = Buffer.from(payload).toString('base64');
+    const keyIndex = 1;
+    const string = payloadMain + '/pg/v1/pay' + process.env.PHONEPE_SALT_KEY;
+    const sha256 = crypto.createHash('sha256').update(string).digest('hex');
+    const checksum = sha256 + '###' + keyIndex;
+    // const prod_URL = "https://api-preprod.phonepe.com/apis/pg-sandbox/pg/v1/pay"
+    const prod_URL = "https://api.phonepe.com/apis/hermes/pg/v1/pay"
+    const options = {
+      method: 'POST',
+      url: prod_URL,
+      headers: {
+        accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-VERIFY': checksum
+      },
+      data: {
+        request: payloadMain
+      }
+    };
+    axios.request(options).then(function (response) {
+      // return res.redirect(response.data.data.instrumentResponse.redirectInfo.url)
+      return res.status(200).send({ status: 1, code: 200, data: { url: response.data.data.instrumentResponse.redirectInfo.url } })
+    })
+      .catch(function (error) {
+        console.error(error);
+      });
+  } catch (error) {
+    res.status(500).send({
+      message: error.message,
+      success: false
+    })
+  }
+}
+
+async function checkPaymentStatus(req, res) {
+  try {
+    const merchantTransactionId = req.params.txnId;
+    const uid = req.params.userId;
+    const merchantUserId = process.env.PHONEPE_MERCHANT_ID;  // Update with your merchant ID
+    const key = process.env.PHONEPE_SALT_KEY;  // Update with your API key
+    const keyIndex = 1;
+
+    const string = `/pg/v1/status/${merchantUserId}/${merchantTransactionId}` + key;
+    const sha256 = crypto.createHash('sha256').update(string).digest('hex');
+    const checksum = sha256 + "###" + keyIndex;
+
+    const URL = `https://api.phonepe.com/apis/hermes/pg/v1/status/${merchantUserId}/${merchantTransactionId}`;
+
+    const options = {
+      method: 'GET',
+      url: URL,
+      headers: {
+        accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-VERIFY': checksum,
+        'X-MERCHANT-ID': merchantUserId,
+      }
+    };
+
+    try {
+      const response = await axios.request(options);
+
+      if (response.data.data.responseCode === 'SUCCESS') {
+        const data = response.data.data
+
+        await db.collection("user-payments").add({ user_id: uid, timestamp: firestore.FieldValue.serverTimestamp(), merchant_trans_id: data.merchantTransactionId, trans_id: data.transactionId, amount: data.amount / 100, pg_gateway: "PHONEPE_PG" })
+
+        res.status(200).json({ code: 200, status: 1, message: "Payment Success" });
+      } else {
+        res.status(400).json({ code: 400, status: 0, message: "Payment Failed" });
+
+      }
+    } catch (error) {
+      res.status(400).json({ code: 400, status: 0, message: "Internal Server Error" });
+    }
+  } catch (error) {
+    res.status(500).json({ code: 500, status: 0, message: "Internal Server Error" });
+  }
+}
+
+
+
 // utils
 function generateThankingMessage(amount) {
   if (amount <= 5) {
@@ -310,4 +421,7 @@ module.exports = {
   getUserNotifications,
   markNotificationRead,
   deleteNotifications,
+
+  initPayment,
+  checkPaymentStatus
 };
