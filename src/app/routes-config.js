@@ -6,6 +6,8 @@ const {
   getUserNotifications,
   deleteNotifications,
   markNotificationRead,
+  initPayment,
+  checkPaymentStatus
 } = require("./controller");
 
 const { isAuthenticated } = require("../auth/authenticated");
@@ -27,6 +29,11 @@ function appRoutesConfig(app) {
     isAuthenticated,
     deleteNotifications,
   ]);
+
+
+  // phonepe endpoints
+ app.post("/app/payment/init",[isAuthenticated,initPayment]) 
+ app.post("/app/payment/status/:txnId/:userId",[checkPaymentStatus]) 
 }
 
 module.exports = { appRoutesConfig };
