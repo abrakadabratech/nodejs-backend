@@ -12,6 +12,7 @@ const {
   userStatus,
   userRoles,
   productBroadcastTopic,
+  productStatus,
 } = require("../utils/constants");
 const admin = require("firebase-admin");
 const { maskEmail, maskPhoneNumber } = require("../utils/utils");
@@ -599,6 +600,64 @@ async function updateUser(req, res) {
   }
 }
 
+async function getUserPublicProfile(req, res) {
+  try {
+    const userId = req.params.id; // Assuming the user ID is passed as a URL parameter
+    const userRef = db.collection("users").doc(userId);
+    const userSnapshot = await userRef.get();
+
+    if (!userSnapshot.exists) {
+      return res.status(200).json({
+        code: 400,
+        status: 0,
+        response_message: "User does not exist",
+      });
+    }
+
+    const userData = userSnapshot.data();
+    const userResponse = {
+      name: userData.name,
+      photo: userData?.user_avatar || null,
+      joined_at: userData.timestamp._seconds,
+    };
+
+    // Fetching the latest 10 products posted by the user
+    const productsRef = db
+      .collection("products")
+      .where("posted_by", "==", userId)
+      .where("status", "in", [
+        productStatus.active,
+        productStatus.hold,
+        productStatus.given,
+      ]).select("name","timestamp","type","price","status","display_image");
+
+    const productsSnapshot = await productsRef.get();
+
+    const productsCount = productsSnapshot.size;
+
+    const recentProducts = [];
+
+    productsSnapshot.forEach((doc) => {
+      if (recentProducts.length >= 10) {
+        return;
+      }
+      recentProducts.push({ id: doc.id, ...doc.data() });
+    });
+
+    // Constructing the response
+    const response = {
+      user: userResponse,
+      total_products_posted: productsCount,
+      recent_products: recentProducts,
+      reviews: [],
+    };
+
+    return res.json({ code: 200, status: 1, data: response });
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
 // async function uploadAvatar(req, res) {
 
 //   const uid = res.locals.uid;
@@ -1004,6 +1063,7 @@ module.exports = {
   userOnboarding,
   newUser,
   getUserProfile,
+  getUserPublicProfile,
   uploadAvatar,
   getUserSocialLink,
   updateUser,
