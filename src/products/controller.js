@@ -1180,7 +1180,7 @@ async function addProductRequest(req, res) {
         code: 200,
         status: 1,
         response_message: "Request added successfully",
-        data: { product_status: productData.status },
+        data: { product_status: productData.status, request_id: ref.id },
       });
     } else {
       return res.json({
