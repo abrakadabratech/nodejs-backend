@@ -23,6 +23,7 @@ const {
   reportUserChat,
   closeUserChat,
   getReceiverChatsList,
+  checkIfUserBlocked,
 } = require("./controller");
 const { isAuthenticated } = require("../auth/authenticated");
 
@@ -80,6 +81,11 @@ function authRoutesConfig(app) {
   app.get("/users/receiver/chats/list", [
     isAuthenticated,
     getReceiverChatsList,
+  ]);
+
+  app.post("/users/chats/allowed", [
+    isAuthenticated,
+    checkIfUserBlocked,
   ]);
 
   app.post("/user/chats/block", [isAuthenticated, blockUserChat]);

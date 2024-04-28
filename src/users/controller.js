@@ -1030,19 +1030,26 @@ async function cancelUserDeletionRequest(req, res) {
 
 async function initiateProductChat(req, res) {
   const productId = req.params.id;
-  const { uid } = res.locals; 
-  const { request_id } = req.body; 
-  
+  const { uid } = res.locals;
+  const { request_id } = req.body;
 
   try {
-    // Fetch product details to get the giver's UID and other product info
+    if (!request_id) {
+      return res.status(400).send({
+        code: 400,
+        status: 0,
+        message: "Request Id not found.",
+      });
+    }
+
+    // Fetch product details to get the giver's UID
     const productRef = db.collection("products").doc(productId);
     const productSnap = await productRef.get();
 
     if (!productSnap.exists) {
       return res.status(404).json({
         code: 404,
-        status: 1,
+        status: 0,
         message: "Product not found.",
       });
     }
@@ -1096,6 +1103,8 @@ async function initiateProductChat(req, res) {
       });
     }
 
+    // Initialize a new chat document
+    const newChatRef = db.collection("chats").doc();
     // Retrieve receiver's user data
     const receiverRef = db.collection("users").doc(uid);
     const receiverSnap = await receiverRef.get();
@@ -1106,7 +1115,6 @@ async function initiateProductChat(req, res) {
     const senderSnap = await senderRef.get();
     const senderData = senderSnap.data();
 
-    const newChatRef = db.collection("chats").doc();
     await newChatRef.set({
       date: "",
       from: giverId,
@@ -1125,8 +1133,28 @@ async function initiateProductChat(req, res) {
       sender_name: senderData.name,
       status: "active",
       is_active: true,
-      timestamp: firestore.FieldValue.serverTimestamp(),
+      time_stamp: firestore.FieldValue.serverTimestamp(),
+      chat_closed: false,
+      chat_closed_reason: null,
     });
+    // Update the product_chat_meta document
+    const chatMetaRef = db.collection("chats-metadata").doc(productId);
+    const chatMetaSnap = await chatMetaRef.get();
+    if (!chatMetaSnap.exists) {
+      // If no meta data exists yet for this product, create it
+      await chatMetaRef.set({
+        product_id: productId,
+        giver_id: giverId,
+        chat_count: 1, // This is the first chat for this product
+        last_activity: firestore.FieldValue.serverTimestamp(),
+      });
+    } else {
+      // If meta data already exists, increment the counts
+      await chatMetaRef.update({
+        chat_count: firestore.FieldValue.increment(1),
+        last_activity: firestore.FieldValue.serverTimestamp(),
+      });
+    }
 
     // Respond with the new chat session ID
     res.status(200).json({
@@ -1138,72 +1166,133 @@ async function initiateProductChat(req, res) {
       },
     });
   } catch (error) {
-    functions.logger.error("Error initiating chat:", error);
+    functions.logger.error("Error blocking user:", error); // Log the error
     res.status(500).json({
       code: 500,
-      status: 1,
+      status: 0,
       message: "Internal server error.",
+    });
+  }
+}
+
+async function checkIfUserBlocked(req, res) {
+  const { receiver_id } = req.body;
+  const { uid } = res.locals; // Assumed to be set by authentication middleware
+
+  try {
+    const exisingBlockerQuery = db
+      .collection("user-chat-blocks")
+      .where("blocker_id", "==", uid)
+      .where("blocked_id", "==", receiver_id)
+      .limit(1);
+    const existingBlockerSnapshot = await exisingBlockerQuery.get();
+
+    const existingBlockedQuery = db
+      .collection("user-chat-blocks")
+      .where("blocker_id", "==", uid)
+      .where("blocked_id", "==", receiver_id)
+      .limit(1);
+    const existingBlockedSnapshot = await existingBlockedQuery.get();
+
+    if (!existingBlockedSnapshot.empty || !exisingBlockerQuery.empty) {
+      return res.json({
+        code: 200,
+        status: 1,
+        data: {
+          sender_id: uid,
+          receiver_id: receiver_id,
+          is_blocked: true,
+        },
+      });
+    }
+
+    return res.json({
+      code: 200,
+      status: 1,
+      data: {
+        sender_id: uid,
+        receiver_id: receiver_id,
+        is_blocked: false,
+      },
+    });
+  } catch (error) {
+    functions.logger.error("Error blocking user:", error); // Log the error
+    res.status(500).json({
+      code: 500,
+      status: 0,
+      message: "Internal server error",
     });
   }
 }
 
 async function getGiverChatProductList(req, res) {
   const { pageNumber = 1, pageSize = 10 } = req.query;
-  const { uid } = res.locals;
-  const numericPageNumber = parseInt(pageNumber, 10); // Fixed the radix parameter to 10
+  const { uid } = res.locals; // The giver's user ID from the authentication middleware
+  const numericPageNumber = parseInt(pageNumber, 10);
   const numericPageSize = parseInt(pageSize, 10);
 
   try {
-    // Step 1: Query products owned by the user, sorted by the latest chat activity
-    let query = db
-      .collection("products")
-      .where("posted_by", "==", uid)
-      .orderBy("timestamp", "desc") // Assuming 'timestamp' is the correct field name for last chat activity
-      .limit(numericPageSize);
+    // Retrieve paginated chat metadata
+    let chatMetadataQuery = db
+      .collection("chats-metadata")
+      .where("giver_id", "==", uid)
+      .orderBy("last_activity", "desc");
 
-    // Handle pagination (if pageNumber > 1)
+    // Apply pagination offset
     if (numericPageNumber > 1) {
       const skipCount = (numericPageNumber - 1) * numericPageSize;
-      const startAtDocument = await db
-        .collection("products")
-        .where("posted_by", "==", uid) // Changed from 'userId' to 'uid'
-        .orderBy("timestamp", "desc") // Assuming 'timestamp' is the correct field name for last chat activity
-        .limit(skipCount)
-        .get();
-
-      const lastVisible = startAtDocument.docs[startAtDocument.docs.length - 1];
-      query = query.startAfter(lastVisible);
+      chatMetadataQuery = chatMetadataQuery.offset(skipCount);
     }
 
-    const productsSnapshot = await query.get();
+    // Limit the number of results
+    chatMetadataQuery = chatMetadataQuery.limit(numericPageSize);
+    const metadataSnapshot = await chatMetadataQuery.get();
 
-    // Step 2: For each product, count its active and unseen chats
+    // For each chat metadata, retrieve product details and calculate unseen chat count
     const productsWithChatCounts = await Promise.all(
-      productsSnapshot.docs.map(async (doc) => {
-        const productData = doc.data();
-        const chatsQuery = db.collection("chats").where("product_id", "==", doc.id);
-
-        // Count total active chats
-        const chatCountSnapshot = await chatsQuery.get();
-
-        // Count unseen chats
-        const unseenChatsSnapshot = await chatsQuery
-          .where("seen", "==", false) 
+      metadataSnapshot.docs.map(async (metaDoc) => {
+        const meta = metaDoc.data();
+        const productSnapshot = await db
+          .collection("products")
+          .doc(meta.product_id)
           .get();
+        const product = productSnapshot.data() || {};
+        const chatDocsQuery = db
+          .collection("chats")
+          .where("product_id", "==", meta.product_id);
+
+        const chatDocsSnapshot = await chatDocsQuery.get();
+        let unreadMessagesCount = 0;
+
+        // Flatten nested map into a single array of promises
+        const messageCountPromises = chatDocsSnapshot.docs.map(async (doc) => {
+          const messagesSnapshot = await doc.ref
+            .collection("Messages")
+            .where("read", "==", false)
+            .where("receiverId", "==", uid)
+            .get();
+          return messagesSnapshot.size; // Return the count of unread messages
+        });
+
+        // Wait for all the unread message counts
+        const messageCounts = await Promise.all(messageCountPromises);
+        unreadMessagesCount = messageCounts.reduce(
+          (total, count) => total + count,
+          0
+        );
 
         return {
-          id: doc.id,
-          name: productData.name,
-          description: productData.description,
-          product_image: productData.display_image,
-          timestamp: productData.timestamp,
-          chat_count: chatCountSnapshot.size,
-          unseen_chats: unseenChatsSnapshot.size,
+          id: meta.product_id,
+          name: product.name || "",
+          description: product.description || "",
+          product_image: product.display_image || "",
+          timestamp: meta.last_activity,
+          chat_count: meta.chat_count,
+          unseen_chats: unreadMessagesCount,
         };
       })
     );
-
-    // Return the paginated list of products with chat counts
+    // Send the response
     res.status(200).json({
       code: 200,
       status: 1,
@@ -1214,11 +1303,14 @@ async function getGiverChatProductList(req, res) {
       },
     });
   } catch (error) {
-    functions.logger.error("Error fetching products and chat counts:", error);
-    res.status(500).send("Error fetching products and chat counts.");
+    functions.logger.error("Error blocking user:", error); // Log the error
+    res.status(500).json({
+      code: 500,
+      status: 0,
+      message: "Internal server error.",
+    });
   }
 }
-
 
 async function getGiverProductChats(req, res) {
   const productId = req.params.id; // Get the product ID from the URL parameter
@@ -1281,8 +1373,8 @@ async function getGiverProductChats(req, res) {
           product_image: productData.display_image, // Use the display_image from product data
           product_name: productData.name,
           last_message: chatData.last_message,
-          unseen_messages: unseenMessages, 
-          is_user_blocked:false
+          unseen_messages: unseenMessages,
+          is_user_blocked: false,
         };
       })
     );
@@ -1361,7 +1453,7 @@ async function getReceiverChatsList(req, res) {
           product_name: chatData.product,
           last_message: chatData.last_message,
           unseen_messages: unseenMessages,
-          is_user_blocked:false
+          is_user_blocked: false,
         };
       })
     );
@@ -1546,9 +1638,19 @@ async function closeUserChat(req, res) {
       });
     }
 
+    let userName = "";
+
+    if (chatData.product_giver === uid) {
+      userName = chatData.sender_name;
+    } else if (chatData.product_receiver === uid) {
+      userName = chatData.receiver_name;
+    }
+
     // Update the chat to indicate it's closed
     await chatRef.update({
-      is_active: false,
+      chat_closed: true,
+      enabled: false,
+      chat_closed_reason: `Chat Closed by ${userName}`,
       closed_by: uid,
       closed_at: firestore.FieldValue.serverTimestamp(),
     });
@@ -1759,7 +1861,7 @@ module.exports = {
   validateUser,
   cancelUserDeletionRequest,
   updateGeolocation,
-
+  checkIfUserBlocked,
   // chats handling
   initiateProductChat,
   reportUserChat,
