@@ -309,6 +309,9 @@ async function getProduct(req, res) {
     const userId = res.locals.uid;
     const productRef = db.collection("products").doc(productId);
     const productSnapshot = await productRef.get();
+
+   
+
     if (!productSnapshot.exists) {
       return res.send({
         code: 404,
@@ -324,6 +327,19 @@ async function getProduct(req, res) {
         response_message: "Product not found",
       });
     }
+    let is_request_allowed = true
+    let requested_blocked_reason = ""
+    const existingBlockerQuery = db
+    .collection("user-chat-blocks")
+    .where("blocker_id", "==", userId)
+    .where("blocked_id", "==", product.posted_by)
+    .limit(1);
+  const existingBlockerSnapshot = await existingBlockerQuery.get();
+  if (!existingBlockerSnapshot.empty) {
+    is_request_allowed = false
+    requested_blocked_reason = "You are not allowed to proceed because you have been blocked by product giver."
+  }
+
     if (product.posted_by !== userId) {
       const reportRef = db
         .collection("product_reports")
@@ -408,7 +424,7 @@ async function getProduct(req, res) {
     return res.json({
       code: 200,
       status: 1,
-      data: { id: productId, ...product },
+      data: { id: productId, ...product, requested_blocked_reason, is_request_allowed},
     });
   } catch (error) {
     functions.logger.error(error);
@@ -1138,6 +1154,10 @@ async function addProductRequest(req, res) {
 
     const snapshot = await requestRef.get();
 
+    const userRef = await db
+    .collection("users").doc(userId).get()
+    const userData=userRef.data()
+
     // TODO: change default request status, check if user is active/not
     if (snapshot.empty) {
       const ref = db.collection("product_requests").doc();
@@ -1164,8 +1184,8 @@ async function addProductRequest(req, res) {
 
       sendNotification(
         [productData.posted_by],
-        "New Request",
-        `You got a request for ${productTitle}.`,
+        `New Message on ${productTitle}`,
+        `Your first message from ${userData.name} is waiting. Check it out!`,
         {
           module: "listing_details_screen",
           data: { requestId: ref.id },
@@ -2454,6 +2474,7 @@ async function submitFeedback(req, res) {
 async function sendChatNotification(req, res) {
   const receiverId = req.body.receiverId;
   const message = req.body.message;
+  const productName = req.body.product_name;
   const chatNode = req.body.chatNode;
   const senderId = res.locals.uid;
 
@@ -2488,13 +2509,13 @@ async function sendChatNotification(req, res) {
     // Send FCM notification to the receiver
     const payload = {
       notification: {
-        title: `Message from ${senderName}`,
+        title: `Message on ${productName || "Product"}`,
         body: message,
       },
       token: fcmToken,
       data: {
-        title: `Message from ${senderName}`,
-        body: `You've got a message from ${senderName}, click to view.`,
+        title: `Message on ${productName || "Product"}`,
+        body: `Another update from ${senderName}. Have a look!`,
         module: "chat_details",
         data: JSON.stringify({ chatNode, notificationDoc: notificationRef.id }),
       },

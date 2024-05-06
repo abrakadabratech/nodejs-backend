@@ -7,7 +7,7 @@ const firestore = require("firebase-admin/firestore");
 const { info } = require("firebase-functions/logger");
 const { getMessaging } = require("firebase-admin/messaging");
 
-const { db, bucket } = require("../utils/firebase");
+const { db, bucket, pubsub } = require("../utils/firebase");
 const {
   userStatus,
   userRoles,
@@ -17,6 +17,7 @@ const {
 const admin = require("firebase-admin");
 const { maskEmail, maskPhoneNumber } = require("../utils/utils");
 const { v4: uuidv4 } = require("uuid");
+const { nanoid } = require("nanoid");
 
 // v2
 
@@ -1180,44 +1181,32 @@ async function checkIfUserBlocked(req, res) {
   const { uid } = res.locals; // Assumed to be set by authentication middleware
 
   try {
-    const exisingBlockerQuery = db
+    const existingBlockerQuery = db
       .collection("user-chat-blocks")
       .where("blocker_id", "==", uid)
       .where("blocked_id", "==", receiver_id)
       .limit(1);
-    const existingBlockerSnapshot = await exisingBlockerQuery.get();
+    const existingBlockerSnapshot = await existingBlockerQuery.get();
 
     const existingBlockedQuery = db
       .collection("user-chat-blocks")
-      .where("blocker_id", "==", uid)
-      .where("blocked_id", "==", receiver_id)
+      .where("blocked_id", "==", uid)
+      .where("blocker_id", "==", receiver_id)
       .limit(1);
     const existingBlockedSnapshot = await existingBlockedQuery.get();
 
-    if (!existingBlockedSnapshot.empty || !exisingBlockerQuery.empty) {
-      return res.json({
-        code: 200,
-        status: 1,
-        data: {
-          sender_id: uid,
-          receiver_id: receiver_id,
-          is_blocked: true,
-        },
-      });
+    if (!existingBlockedSnapshot.empty) {
+      const data = existingBlockedSnapshot.docs[0].data();
+      return res.json(createResponse(uid, receiver_id, data.blocker_id, true));
+    } else if (!existingBlockerSnapshot.empty) {
+      const data = existingBlockerSnapshot.docs[0].data();
+      return res.json(createResponse(uid, receiver_id, data.blocker_id, true));
+    } else {
+      return res.json(createResponse(uid, receiver_id, null, false));
     }
-
-    return res.json({
-      code: 200,
-      status: 1,
-      data: {
-        sender_id: uid,
-        receiver_id: receiver_id,
-        is_blocked: false,
-      },
-    });
   } catch (error) {
-    functions.logger.error("Error blocking user:", error); // Log the error
-    res.status(500).json({
+    console.error("Error checking user block status:", error); // Use console.error if functions.logger is not available
+    return res.status(500).json({
       code: 500,
       status: 0,
       message: "Internal server error",
@@ -1580,7 +1569,7 @@ async function reportUserChat(req, res) {
     }
 
     const chatData = chatSnap.data();
-    if (chatData.product_giver !== uid && chatData.product_receiver !== uid) {
+    if (chatData.sender_id !== uid && chatData.receiver_id !== uid) {
       return res.status(403).json({
         code: 403,
         status: 0,
@@ -1588,20 +1577,51 @@ async function reportUserChat(req, res) {
       });
     }
 
-    // Create a report document in the 'chat_reports' collection
-    const reportRef = db.collection("user-chats-report").doc();
-    await reportRef.set({
-      chat_id: chat_id,
-      reported_by: uid,
-      reason,
-      timestamp: firestore.FieldValue.serverTimestamp(),
+    //     report_submissions: Array of report submission objects. Each submission object contains:
+    // submission_id: Unique identifier for the report submission.
+    // submitted_by: Identifier of the user who submitted the report.
+    // reason: Reason for the report (e.g., "Spam", "Harassment").
+    // submitted_at: Timestamp of when the report was submitted.
+
+    const newReportSubmission = {
+      submission_id: nanoid(6),
+      submitted_by: uid,
+      reason: reason,
+      submitted_at: admin.firestore.FieldValue.serverTimestamp(), // Sets the timestamp to the current server time
+    };
+
+    await chatRef.update({
+      report_submissions: firestore.FieldValue.arrayUnion(newReportSubmission),
     });
 
-    // Successfully created a report
-    res.status(200).json({
+    setTimeout(async () => {
+      const evaluation_report = {
+        submission_id: newReportSubmission.submission_id,
+        messages: [],
+        evaluation_result: "Safe",
+        evaluation_details: "Details of the evaluation",
+        evaluated_at: firestore.FieldValue.serverTimestamp(),
+      };
+      await chatRef.update({
+        user_report_evaluations:
+          firestore.FieldValue.arrayUnion(evaluation_report),
+      });
+    }, 500);
+
+    // implement queue
+    // const queueMessage = JSON.stringify({
+    //   chat_id,
+    //   report_id: newReportSubmission.submission_id,
+    // });
+
+    // await pubsub
+    //   .topic("chat_report_evaluate")
+    //   .publish(Buffer.from(queueMessage));
+
+    return res.status(200).json({
       code: 200,
       status: 1,
-      message: "Chat reported successfully.",
+      message: "chat report success.",
     });
   } catch (error) {
     functions.logger.error("Error reporting chat:", error);
@@ -1843,6 +1863,24 @@ function handleError(req, res, err) {
 function logFunctionInit(req) {
   if (req.headers.logging)
     info(`Requested ${req.path}`, { query_params: req.query, body: req.body });
+}
+
+function createResponse(sender_id, receiver_id, blocker_id, is_blocked) {
+  const response = {
+    code: 200,
+    status: 1,
+    data: {
+      sender_id: sender_id,
+      receiver_id: receiver_id,
+      is_blocked: is_blocked,
+    },
+  };
+
+  if (is_blocked) {
+    response.data.blocked_by = blocker_id;
+  }
+
+  return response;
 }
 
 module.exports = {
