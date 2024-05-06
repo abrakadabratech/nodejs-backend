@@ -18,6 +18,7 @@ const admin = require("firebase-admin");
 const { maskEmail, maskPhoneNumber } = require("../utils/utils");
 const { v4: uuidv4 } = require("uuid");
 const { nanoid } = require("nanoid");
+const { evaluateMessage } = require("./functions");
 
 // v2
 
@@ -1137,6 +1138,9 @@ async function initiateProductChat(req, res) {
       time_stamp: firestore.FieldValue.serverTimestamp(),
       chat_closed: false,
       chat_closed_reason: null,
+      check_warnings: false,
+      warnings: [],
+      user_report_evaluations: [],
     });
     // Update the product_chat_meta document
     const chatMetaRef = db.collection("chats-metadata").doc(productId);
@@ -1826,6 +1830,41 @@ async function unBlockUserChat(req, res) {
       code: 500,
       status: 0,
       message: "Internal server error when trying to unblock user.",
+    });
+  }
+}
+
+async function evaluateChatMessage(req, res) {
+  const { chat_id, message_id, message, receiver_id } = req.body;
+
+  if (!chat_id || !message_id || !message || !receiver_id) {
+    return res.status(400).json({
+      code: 400,
+      status: 0,
+      message: "Required fields are missing from the request.",
+    });
+  }
+
+  functions.logger.info(`message evaluation api ${chat_id} - ${message_id}`);
+
+  res.status(200).json({
+    code: 200,
+    status: 1,
+    message: "ok",
+  });
+
+  const evaluationResult = await evaluateMessage(message);
+  if (evaluationResult.needsWarning) {
+    // Update Firestore with the evaluation result
+    const chatRef = db.collection("chats").doc(chat_id);
+    await chatRef.update({
+      wanrings: admin.firestore.FieldValue.arrayUnion({
+        message_id: message_id,
+        warned_user: receiver_id,
+        acknowledged: false,
+        reason: evaluationResult.warnings.join(" \n "),
+      }),
+      check_warnings: true,
     });
   }
 }
