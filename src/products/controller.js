@@ -25,6 +25,7 @@ const {
   addRequestCount,
   decreaseRequestCount,
 } = require("./utils");
+const { evaluateMessage } = require("../users/functions");
 
 // razorpay instance create
 
@@ -310,8 +311,6 @@ async function getProduct(req, res) {
     const productRef = db.collection("products").doc(productId);
     const productSnapshot = await productRef.get();
 
-   
-
     if (!productSnapshot.exists) {
       return res.send({
         code: 404,
@@ -327,18 +326,19 @@ async function getProduct(req, res) {
         response_message: "Product not found",
       });
     }
-    let is_request_allowed = true
-    let requested_blocked_reason = ""
+    let is_request_allowed = true;
+    let requested_blocked_reason = "";
     const existingBlockerQuery = db
-    .collection("user-chat-blocks")
-    .where("blocker_id", "==", userId)
-    .where("blocked_id", "==", product.posted_by)
-    .limit(1);
-  const existingBlockerSnapshot = await existingBlockerQuery.get();
-  if (!existingBlockerSnapshot.empty) {
-    is_request_allowed = false
-    requested_blocked_reason = "You are not allowed to proceed because you have been blocked by product giver."
-  }
+      .collection("user-chat-blocks")
+      .where("blocker_id", "==", userId)
+      .where("blocked_id", "==", product.posted_by)
+      .limit(1);
+    const existingBlockerSnapshot = await existingBlockerQuery.get();
+    if (!existingBlockerSnapshot.empty) {
+      is_request_allowed = false;
+      requested_blocked_reason =
+        "You are not allowed to proceed because you have been blocked by product giver.";
+    }
 
     if (product.posted_by !== userId) {
       const reportRef = db
@@ -365,7 +365,6 @@ async function getProduct(req, res) {
         product.isRequested = false;
         product.requestAccepted = false;
         product.chat_node = null;
-
       } else {
         const status = requestSnapshot.docs[0].data().status;
         product.isRequested = true;
@@ -424,7 +423,12 @@ async function getProduct(req, res) {
     return res.json({
       code: 200,
       status: 1,
-      data: { id: productId, ...product, requested_blocked_reason, is_request_allowed},
+      data: {
+        id: productId,
+        ...product,
+        requested_blocked_reason,
+        is_request_allowed,
+      },
     });
   } catch (error) {
     functions.logger.error(error);
@@ -1154,9 +1158,8 @@ async function addProductRequest(req, res) {
 
     const snapshot = await requestRef.get();
 
-    const userRef = await db
-    .collection("users").doc(userId).get()
-    const userData=userRef.data()
+    const userRef = await db.collection("users").doc(userId).get();
+    const userData = userRef.data();
 
     // TODO: change default request status, check if user is active/not
     if (snapshot.empty) {
@@ -1610,7 +1613,7 @@ async function getProductRequest(req, res) {
       },
       receiver_info: { ...user },
       request: { ...requestData },
-      chat_node: chatNode
+      chat_node: chatNode,
     };
 
     return res.json({
@@ -2222,14 +2225,17 @@ async function getRequestwithId(req, res) {
 
     let chatNode = null;
 
-    const chatDocSnapshot = await db.collection("chats").where("product_id", "==", requestData.productId).where("receiver_id", "==", requestData.userId).get()
+    const chatDocSnapshot = await db
+      .collection("chats")
+      .where("product_id", "==", requestData.productId)
+      .where("receiver_id", "==", requestData.userId)
+      .get();
 
     if (!chatDocSnapshot.empty) {
       // Assuming you're interested in the first document found
       const document = chatDocSnapshot.docs[0];
       chatNode = document.id;
     }
-
 
     // clear unwanted product data from response
     delete productData.timestamp;
@@ -2261,7 +2267,7 @@ async function getRequestwithId(req, res) {
         request_message: requestData.message,
         isReceived: requestData.isReceived,
         isDelivered: requestData.isDelivered,
-        chat_node: chatNode
+        chat_node: chatNode,
       },
     });
   } catch (error) {
@@ -2387,7 +2393,7 @@ async function submitFeedback(req, res) {
       (parseInt(pickup_convenience) +
         parseInt(receiver_reliability) +
         parseInt(pick_up_timeliness)) /
-      3
+        3
     );
 
     await db.collection("feedbacks").add({
@@ -2440,7 +2446,7 @@ async function submitFeedback(req, res) {
       (parseInt(delivery_convenience) +
         parseInt(giver_responsiveness) +
         parseInt(product_satisfaction)) /
-      3
+        3
     );
 
     await db.collection("feedbacks").add({
@@ -2473,16 +2479,17 @@ async function submitFeedback(req, res) {
 
 async function sendChatNotification(req, res) {
   const receiverId = req.body.receiverId;
+  const messageId = req.body.message_id;
   const message = req.body.message;
   const productName = req.body.product_name;
   const chatNode = req.body.chatNode;
   const senderId = res.locals.uid;
 
-  if (!receiverId || !message)
+  if (!receiverId || !message || !messageId || !productName || !chatNode)
     return res.json({
       code: 400,
       status: 0,
-      response_message: "Invalid Request",
+      response_message: "Required fields are missing from the request.",
     });
 
   try {
@@ -2526,33 +2533,65 @@ async function sendChatNotification(req, res) {
       },
     };
 
-    getMessaging()
-      .send(payload)
-      .then(async (response) => {
-        // Response is a message ID string.
+    const messageId = await getMessaging().send(payload);
+    // messageId is a string representing the message ID.
 
-        const notification = {
-          docId: notificationRef.id,
-          userId: receiverId,
-          title: payload.data.title,
-          body: payload.data.body,
-          module: payload.data.module,
-          data: JSON.parse(payload.data.data),
-          timestamp: firestore.FieldValue.serverTimestamp(),
-          deleted: false,
-        };
+    const notification = {
+      docId: notificationRef.id,
+      userId: receiverId,
+      title: payload.data.title,
+      body: payload.data.body,
+      module: payload.data.module,
+      data: JSON.parse(payload.data.data),
+      timestamp: firestore.FieldValue.serverTimestamp(),
+      deleted: false,
+    };
 
-        await notificationRef.set(notification);
+    await notificationRef.set(notification);
 
-        res.json({
-          code: 200,
-          status: 1,
-          response_message: "Notification sent successfully",
-        });
-      })
-      .catch((error) => {
-        handleError(req, res, error);
+    // getMessaging()
+    //   .send(payload)
+    //   .then(async (response) => {
+    //     // Response is a message ID string.
+
+    //     const notification = {
+    //       docId: notificationRef.id,
+    //       userId: receiverId,
+    //       title: payload.data.title,
+    //       body: payload.data.body,
+    //       module: payload.data.module,
+    //       data: JSON.parse(payload.data.data),
+    //       timestamp: firestore.FieldValue.serverTimestamp(),
+    //       deleted: false,
+    //     };
+
+    //     await notificationRef.set(notification);
+
+    //     res.json({
+    //       code: 200,
+    //       status: 1,
+    //       response_message: "Notification sent successfully",
+    //     });
+    //   })
+    //   .catch((error) => {
+    //     handleError(req, res, error);
+    //   });
+
+    // process message
+    const evaluationResult = await evaluateMessage(message);
+    if (evaluationResult.needsWarning) {
+      // Update Firestore with the evaluation result
+      const chatRef = db.collection("chats").doc(chatNode);
+      await chatRef.update({
+        wanrings: firestore.FieldValue.arrayUnion({
+          message_id: messageId,
+          warned_user: receiverId,
+          acknowledged: false,
+          reason: evaluationResult.warnings.join(" \n "),
+        }),
+        check_warnings: true,
       });
+    }
   } catch (error) {
     handleError(req, res, error);
   }

@@ -1591,7 +1591,7 @@ async function reportUserChat(req, res) {
       submission_id: generateSixDigitUID(),
       submitted_by: uid,
       reason: reason,
-      submitted_at: admin.firestore.FieldValue.serverTimestamp(), // Sets the timestamp to the current server time
+      submitted_at: new Date().toISOString() 
     };
 
     await chatRef.update({

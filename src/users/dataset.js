@@ -1,4 +1,4 @@
-export const financialTerms = [
+const financialTerms = [
     "UPI",
     "Paytm",
     "PhonePe",
@@ -28,7 +28,7 @@ export const financialTerms = [
     "Pyramid scheme"
 ]
 
-export const scamTerms = [
+const scamTerms = [
     "Lottery scam",
     "Job offer scam",
     "Easy money",
@@ -58,7 +58,7 @@ export const scamTerms = [
     "Rental scam"
 ]
 
-export const aggressiveTerms=[
+const aggressiveTerms=[
     "Urgent action required",
     "Limited time offer",
     "Confirm immediately",
@@ -87,3 +87,5 @@ export const aggressiveTerms=[
     "Call now",
     "Subscribe immediately"
 ]
+
+module.exports={financialTerms,scamTerms,aggressiveTerms }
