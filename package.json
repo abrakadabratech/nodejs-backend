@@ -2,18 +2,22 @@
   "name": "functions",
   "description": "Cloud Functions for Firebase",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "start:dev": "nodemon index.js",
+    "deploy:dev": "gcloud app deploy app.dev.yaml --project=abrakadabra-dev",
+    "deploy:production": "gcloud app deploy app.yaml --project=akd-prod"
   },
   "engines": {
     "node": "18"
   },
   "main": "src/index.js",
   "dependencies": {
-    "@google-cloud/pubsub": "^4.0.6",
+    "@google-cloud/pubsub": "^4.3.3",
     "@google-cloud/storage": "^6.9.0",
     "axios": "^1.6.8",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.1",
+    "compromise": "^14.13.0",
     "cors": "^2.8.5",
     "csv-writer": "^1.6.0",
     "dayjs": "^1.11.10",
@@ -29,10 +33,12 @@
     "joi": "^17.11.0",
     "jsonwebtoken": "^9.0.2",
     "moment": "^2.29.4",
+    "nanoid": "^5.0.7",
     "nodemailer": "^6.9.7",
     "openai": "^4.20.0",
     "papaparse": "^5.4.1",
     "razorpay": "^2.8.4",
+    "socket.io": "^4.7.4",
     "uuid": "^9.0.1",
     "uuid-v4": "^0.1.0",
     "validator": "^13.7.0"
