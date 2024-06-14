@@ -1180,6 +1180,42 @@ async function initiateProductChat(req, res) {
   }
 }
 
+async function getChatMetadata(req, res) {
+  const { uid } = res.locals; // Assumed to be set by authentication middleware
+  const { chat_id } = req.params; // Assumed to be set by authentication middleware
+
+  try {
+    const chatRef = db.collection("chats").doc(chat_id);
+    const chatDoc = await chatRef.get();
+
+    if (!chatDoc.exists) {
+      return { error: "Chat not found" };
+    }
+
+    const chatData = chatDoc.data();
+
+    // Check if the user ID is either the receiver or giver
+    if (chatData.product_giver === uid || chatData.product_receiver === uid) {
+      const productRef = db.collection("products").doc(chatData.product_id);
+      const productDoc = await productRef.get();
+
+      res.send({
+        chat_id,
+        data: { chat_data: chatData, product_data: productDoc.data() },
+      });
+    } else {
+      res.send({ error: "User is neither the receiver nor the giver" });
+    }
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      code: 500,
+      status: 0,
+      message: "Internal server error",
+    });
+  }
+}
+
 async function checkIfUserBlocked(req, res) {
   const { receiver_id } = req.body;
   const { uid } = res.locals; // Assumed to be set by authentication middleware
@@ -1949,6 +1985,7 @@ module.exports = {
   checkIfUserBlocked,
   // chats handling
   initiateProductChat,
+  getChatMetadata,
   reportUserChat,
   closeUserChat,
   getGiverChatProductList,

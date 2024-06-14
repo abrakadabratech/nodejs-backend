@@ -24,6 +24,7 @@ const {
   closeUserChat,
   getReceiverChatsList,
   checkIfUserBlocked,
+  getChatMetadata,
 } = require("./controller");
 const { isAuthenticated } = require("../auth/authenticated");
 
@@ -64,6 +65,7 @@ function authRoutesConfig(app) {
     initiateProductChat,
   ]);
 
+  app.post("/user/chat/:chat_id/metadata", [isAuthenticated, getChatMetadata]);
   app.post("/user/chat/:chat_id/report", [isAuthenticated, reportUserChat]);
 
   app.post("/user/chat/:chat_id/close", [isAuthenticated, closeUserChat]);
