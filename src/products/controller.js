@@ -1489,10 +1489,23 @@ async function getPaginatedProductRequests(req, res) {
           email: requestData.user.email,
           phone: requestData.user.phone,
           user_avatar: requestData.user.user_avatar,
+          chat_id: null,
           requested_at: moment(
             new Date(requestData.timestamp.seconds * 1000)
           ).format("MMM Do"),
         };
+
+        const chatQuery = db
+          .collection("chats")
+          .where("product_id", "==", productId)
+          .where("product_receiver", "==", requestData.userId)
+          .limit(1);
+
+        const chatSnap = await chatQuery.get();
+
+        if (!chatSnap.empty) {
+          data["chat_id"] = chatSnap.docs[0].id;
+        }
 
         const distance = geolib.getDistance(
           {
