@@ -83,10 +83,7 @@ function authRoutesConfig(app) {
     getReceiverChatsList,
   ]);
 
-  app.post("/users/chats/allowed", [
-    isAuthenticated,
-    checkIfUserBlocked,
-  ]);
+  app.post("/users/chats/allowed", [isAuthenticated, checkIfUserBlocked]);
 
   app.post("/user/chats/block", [isAuthenticated, blockUserChat]);
 

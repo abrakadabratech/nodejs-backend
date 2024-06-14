@@ -17,7 +17,7 @@ const {
 const admin = require("firebase-admin");
 const { maskEmail, maskPhoneNumber } = require("../utils/utils");
 const { v4: uuidv4 } = require("uuid");
-const crypto = require('crypto');
+const crypto = require("crypto");
 const { evaluateMessage } = require("./functions");
 
 // v2
@@ -1591,7 +1591,7 @@ async function reportUserChat(req, res) {
       submission_id: generateSixDigitUID(),
       submitted_by: uid,
       reason: reason,
-      submitted_at: new Date().toISOString() 
+      submitted_at: new Date().toISOString(),
     };
 
     await chatRef.update({
@@ -1927,9 +1927,8 @@ function generateSixDigitUID() {
   const buffer = crypto.randomBytes(4); // Use 4 bytes to ensure a range large enough for a 6-digit number
   const randomNumber = buffer.readUInt32BE(0); // Read it as a 32-bit big-endian unsigned integer
   const sixDigitUID = randomNumber % 1000000; // Use modulo to limit it to 6 digits
-  return sixDigitUID.toString().padStart(6, '0'); // Pad with leading zeros if necessary
+  return sixDigitUID.toString().padStart(6, "0"); // Pad with leading zeros if necessary
 }
-
 
 module.exports = {
   createNewUserv2,
