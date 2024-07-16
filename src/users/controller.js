@@ -1199,9 +1199,19 @@ async function getChatMetadata(req, res) {
       const productRef = db.collection("products").doc(chatData.product_id);
       const productDoc = await productRef.get();
 
+      const requestRef = db
+        .collection("product_requests")
+        .doc(chatData.requestId);
+
+      const requestDoc = await requestRef.get();
+
       res.send({
         chat_id,
-        data: { chat_data: chatData, product_data: productDoc.data() },
+        data: {
+          chat_data: chatData,
+          product_data: productDoc.data(),
+          request_data: requestDoc.data(),
+        },
       });
     } else {
       res.send({ error: "User is neither the receiver nor the giver" });

@@ -2546,6 +2546,8 @@ async function sendChatNotification(req, res) {
       },
     };
 
+    functions.logger.info("NOTIFICATION TRIGGER", payload);
+
     const messageId = await getMessaging().send(payload);
     // messageId is a string representing the message ID.
 
@@ -2561,6 +2563,12 @@ async function sendChatNotification(req, res) {
     };
 
     await notificationRef.set(notification);
+
+    res.json({
+      code: 200,
+      status: 1,
+      response_message: "Notification sent successfully",
+    });
 
     // getMessaging()
     //   .send(payload)
