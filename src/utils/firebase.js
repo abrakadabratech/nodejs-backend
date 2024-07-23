@@ -25,17 +25,22 @@ if (process.env.NODE_ENV === "production") {
 } else {
   // Assuming any non-production environment as development/staging
   firebaseConfig = {
-    credential: admin.credential.cert(devServiceAccount),
-    databaseURL: DEV_DB_URL,
-    storageBucket: DEV_BUCKET_URL,
+    credential: admin.credential.cert(prodServiceAccount),
+    databaseURL: PROD_DB_URL,
+    storageBucket: PROD_BUCKET_URL,
   };
+  // firebaseConfig = {
+  //   credential: admin.credential.cert(devServiceAccount),
+  //   databaseURL: DEV_DB_URL,
+  //   storageBucket: DEV_BUCKET_URL,
+  // };
 }
 
 // Initialize Firebase App
 const firebaseApp = admin.initializeApp(firebaseConfig);
 
 // Firestore and Storage instances
-const db = getFirestore();
+const db = getFirestore("pre-prod");
 const bucket = getStorage().bucket();
 
 // Initialize Google Cloud Pub/Sub
@@ -43,7 +48,8 @@ const pubsub = new PubSub({
   credentials:
     process.env.NODE_ENV === "production"
       ? prodServiceAccount
-      : devServiceAccount,
+      : prodServiceAccount,
+  // : devServiceAccount,
 });
 
 module.exports = { firebaseApp, db, bucket, pubsub };
