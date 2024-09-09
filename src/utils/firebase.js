@@ -40,7 +40,7 @@ if (process.env.NODE_ENV === "production") {
 const firebaseApp = admin.initializeApp(firebaseConfig);
 
 // Firestore and Storage instances
-const db = getFirestore("pre-prod");
+const db = getFirestore();
 const bucket = getStorage().bucket();
 
 // Initialize Google Cloud Pub/Sub

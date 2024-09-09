@@ -458,8 +458,7 @@ async function getProducts(req, res) {
     return res.json({
       code: 400,
       status: 0,
-      response_message:
-        "Invalid product type. Allowed types are: " + allowed_types.join(", "),
+      response_message: "Invalid product type.",
     });
   }
   if (allowed_types[productType]) {

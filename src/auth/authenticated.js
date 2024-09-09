@@ -3,7 +3,7 @@ const { logger } = require("firebase-functions/v1");
 
 async function isAuthenticated(req, res, next) {
   // res.locals.uid = "n91Enbiou2XDJ3fFVhYqv4Y8If53";
-  // res.locals.uid = "D93SVUQFuifyMx549dXPWpYRXv6o1";
+  // res.locals.uid = "XOqeLu2BXsO6OLqNtz91Mhnmel53";
   // return next();
 
   const { authorization } = req.headers;
