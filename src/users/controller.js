@@ -86,13 +86,14 @@ async function createNewUserv2(req, res) {
       ) {
         return res.send({
           status: 0,
-          code: 200,
+          code: 400,
+          message:"User Deletion Request Active",
           error: true,
           error_code: "USER_DELETION_REQUEST_ACTIVE",
         });
       } else {
-        return res.status(201).send({
-          code: 201,
+        return res.status(200).send({
+          code: 200,
           status: 1,
           message: "User Login Success.",
           data: { uid, method },
@@ -110,9 +111,9 @@ async function createNewUserv2(req, res) {
           const maskedPhone = maskPhoneNumber(data.phone);
           let error_message = `An account already exists with the email associated with this phone number (${maskedPhone}). Please sign in using your email or use a different phone number for a new account.`;
 
-          return res.status(200).send({
-            code: 200,
-            status: 1,
+          return res.status(400).send({
+            code: 400,
+            status: 0,
             message: error_message,
             alert_message: {
               type: "error",
@@ -130,9 +131,9 @@ async function createNewUserv2(req, res) {
           const maskedEmail = maskEmail(data.email);
           let error_message = `An account already exists with the phone number associated with this email(${maskedEmail}). Please sign in using your phone number or use a different email for a new account.`;
 
-          return res.status(200).send({
-            code: 200,
-            status: 1,
+          return res.status(400).send({
+            code: 400,
+            status: 0,
             message: error_message,
             alert_message: {
               type: "error",
