@@ -42,7 +42,8 @@
     "validator": "^13.7.0"
   },
   "devDependencies": {
-    "firebase-functions-test": "^0.2.0"
+    "firebase-functions-test": "^0.2.0",
+    "nodemon": "^3.1.7"
   },
   "private": true
 }

@@ -262,7 +262,7 @@ async function createNewProduct(req, res) {
             );
             await productRef.set(newProduct);
 
-           return res.json({
+            return res.json({
               code: 201,
               status: 0,
               response_message: "Your Product Successfully Posted",
@@ -390,8 +390,8 @@ async function getProducts(req, res) {
 
   const userId = res.locals.uid;
   // Get the user's location from the request
-  const userLat = req.query.lat;
-  const userLng = req.query.long;
+  const userLat = req.query.lat || "12.9716";
+  const userLng = req.query.long || "77.5946";
   var productType = req.query.type;
 
   const data = {};
@@ -541,9 +541,13 @@ async function getProducts(req, res) {
       result.push(D);
     });
 
+    const totalProducts = filteredProducts.length;
+    const totalPages = Math.ceil(totalProducts / productsPerPage);
+
     res.json({
       code: 200,
       status: 1,
+      total_pages: totalPages,
       data: {
         page,
         ...data,
@@ -2594,7 +2598,7 @@ async function getRazorpayKey(req, res) {
 function handleError(req, res, err) {
   // functions.logger.error({ err, req });
   console.log(err);
-  return res.json({
+  return res.status(500).json({
     code: 500,
     status: 0,
     response_message: "Unable to process the request.",

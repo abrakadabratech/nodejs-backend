@@ -6,7 +6,7 @@ async function isAuthenticated(req, res, next) {
 
   // res.locals.uid = "D93SVUQFuifyM549dXPWpYRXv6o1";
   // return next();
-  
+
   const { authorization } = req.headers;
 
   if (!authorization)
