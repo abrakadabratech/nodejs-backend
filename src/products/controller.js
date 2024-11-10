@@ -350,7 +350,7 @@ async function getProduct(req, res) {
     const statsDoc = await userStatsRef.get();
     product.posted_by = {
       uid: product.posted_by,
-      name: userData.name,
+      name: userData?.name || "",
       user_avatar: userData.user_avatar,
       member_since: moment(new Date(userData.timestamp._seconds * 1000)).format(
         "MMM Do"
@@ -416,7 +416,7 @@ async function getProducts(req, res) {
   }
   try {
     const page = req.query.page || 1;
-    const productsPerPage = req.query.pageSize || 10;
+    const productsPerPage = req.query.pageSize || 12;
     const maxDistance = req.query.maxDistance || 50;
     // const searchQuery = req.query.search;
     const categoryId = req.query.category;
@@ -561,8 +561,8 @@ async function getProducts(req, res) {
 }
 
 async function searchProduct(req, res) {
-  const userLat = req.query.lat;
-  const userLng = req.query.long;
+  const userLat = req.query.lat || "12.9716";
+  const userLng = req.query.long || "77.5946";
   const searchQuery = req.query.query;
   const maxDistance = req.query.maxDistance || 5000;
   const userId = res.locals.uid;
@@ -1315,13 +1315,13 @@ async function getProductRequestDetail(req, res) {
 
     const productData = productSnapshot.data();
 
-    if (productData.posted_by !== res.locals.uid) {
-      return res.json({
-        code: 401,
-        status: 0,
-        response_message: "Unauthorized",
-      });
-    }
+    // if (productData.posted_by !== res.locals.uid) {
+    //   return res.json({
+    //     code: 401,
+    //     status: 0,
+    //     response_message: "Unauthorized",
+    //   });
+    // }
 
     const userRef = await db
       .collection("users")
@@ -1587,6 +1587,7 @@ async function verifyRequestAllowed(req, res) {
     });
   }
 }
+
 async function updateProductRequest(req, res) {
   const userId = res.locals.uid;
   const requestId = req.params.requestId;

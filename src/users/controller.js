@@ -527,6 +527,7 @@ async function updateUser(req, res) {
     const uid = res.locals.uid;
 
     const { data } = req.body;
+
     if (data.email) {
       if (!validator.isEmail(data.email))
         return res.json({
@@ -629,7 +630,8 @@ async function getUserPublicProfile(req, res) {
         productStatus.active,
         productStatus.hold,
         productStatus.given,
-      ]).select("name","timestamp","type","price","status","display_image");
+      ])
+      .select("name", "timestamp", "type", "price", "status", "display_image");
 
     const productsSnapshot = await productsRef.get();
 
