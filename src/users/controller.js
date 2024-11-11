@@ -484,7 +484,7 @@ async function newUser(req, res) {
       await usersRef.set({
         name,
         email,
-        phone: res.locals.phone ?? "",
+        phone: res.locals.phone || "",
         social_link: null,
         social_link_type: null,
         user_avatar: null,
