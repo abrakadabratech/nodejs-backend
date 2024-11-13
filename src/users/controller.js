@@ -490,7 +490,6 @@ async function newUser(req, res) {
         user_avatar: null,
         fcmToken: null,
         location: null,
-        // status: userStatus.not_verified,
         status: userStatus.active,
         timestamp: firestore.FieldValue.serverTimestamp(),
         role: userRoles.user,
