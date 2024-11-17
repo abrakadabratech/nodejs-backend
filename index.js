@@ -20,13 +20,23 @@ const {
 const { validateProduct } = require("./src/utils/openai/functions.js");
 const { sendNotification } = require("./src/utils/utils.js");
 const { updateAdminAnalytics } = require("./src/admin/utils.js");
+const { logRequests } = require("./src/utils/logger.js");
+const morgan = require("morgan");
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb", extended: true }));
 app.use(express.urlencoded({ extended: false, limit: "50mb" }));
 
+morgan.token("date", () => new Date().toISOString());
+app.use(
+  morgan(
+    "[:date] :method :url :status :res[content-length] - :response-time ms"
+  )
+);
+
 const adminApp = express();
+
 adminApp.use(cors());
 adminApp.use(express.json({ limit: "50mb", extended: true }));
 adminApp.use(express.urlencoded({ extended: false, limit: "50mb" }));
@@ -47,7 +57,6 @@ app.listen(PORT, () => {
 //   .region("asia-south1")
 //   .runWith({ timeoutSeconds: 540 })
 //   .https.onRequest(adminApp);
-
 
 // exports.newProductValidation = functions.firestore
 //   .document("products/{productId}")
