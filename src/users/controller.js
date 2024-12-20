@@ -87,7 +87,7 @@ async function createNewUserv2(req, res) {
         return res.send({
           status: 0,
           code: 400,
-          message:"User Deletion Request Active",
+          message: "User Deletion Request Active",
           error: true,
           error_code: "USER_DELETION_REQUEST_ACTIVE",
         });
@@ -857,7 +857,6 @@ async function updateUserSocialLink(req, res) {
 
   try {
     const uid = res.locals.uid;
-
     // fetch user from firebase
     const usersRef = db.collection("users").doc(uid);
 

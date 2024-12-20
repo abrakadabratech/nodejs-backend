@@ -1189,20 +1189,20 @@ async function addProductRequest(req, res) {
         await addRequestCount(userId);
       }
 
-      sendNotification(
-        [productData.posted_by],
-        `New Message on ${productTitle}`,
-        `Your first message from ${userData.name} is waiting. Check it out!`,
-        {
-          module: "listing_details_screen",
-          data: { requestId: ref.id },
-        },
-        {
-          notification: {
-            click_action: "listing_details_screen",
-          },
-        }
-      );
+      // sendNotification(
+      //   [productData.posted_by],
+      //   `New Message on ${productTitle}`,
+      //   `Your first message from ${userData.name} is waiting. Check it out!`,
+      //   {
+      //     module: "listing_details_screen",
+      //     data: { requestId: ref.id },
+      //   },
+      //   {
+      //     notification: {
+      //       click_action: "listing_details_screen",
+      //     },
+      //   }
+      // );
       return res.json({
         code: 200,
         status: 1,
@@ -2503,7 +2503,11 @@ async function sendChatNotification(req, res) {
   const chatNode = req.body.chatNode;
   const senderId = res.locals.uid;
 
-  if (!receiverId || !message || !messageId || !productName || !chatNode)
+  console.log(`req.body`, req.body);
+
+  console.log(`test`, receiverId, message, productName, chatNode);
+
+  if (!receiverId || !message || !productName)
     return res.json({
       code: 400,
       status: 0,
@@ -2513,7 +2517,11 @@ async function sendChatNotification(req, res) {
   try {
     // Get the FCM token of the receiver
     const receiverRef = db.collection("users").doc(receiverId);
+
     const receiverSnapshot = await receiverRef.get();
+
+    console.log(`checking if the recieverSnapshot`, receiverSnapshot.exists);
+
     const receiver = receiverSnapshot.data();
     const fcmToken = receiver.fcmToken;
     if (!fcmToken)
@@ -2551,9 +2559,9 @@ async function sendChatNotification(req, res) {
       },
     };
 
-    functions.logger.info("NOTIFICATION TRIGGER", payload);
+    // functions.logger.info("NOTIFICATION TRIGGER", payload);
 
-    const messageId = await getMessaging().send(payload);
+    // const messageId = await getMessaging().send(payload);
     // messageId is a string representing the message ID.
 
     const notification = {
@@ -2605,7 +2613,7 @@ async function sendChatNotification(req, res) {
 
     // process message
     const evaluationResult = await evaluateMessage(message);
-    if (evaluationResult.needsWarning) {
+    if (evaluationResult.needsWarning && chatNode) {
       // Update Firestore with the evaluation result
       const chatRef = db.collection("chats").doc(chatNode);
       await chatRef.update({

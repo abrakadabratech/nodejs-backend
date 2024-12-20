@@ -31,7 +31,7 @@ function productsRoutesConfig(app) {
   // product routes
 
   app.post("/product/new", [isAuthenticated, createNewProduct]);
-  app.get("/products", [isAuthenticated, getProducts]);
+  app.get("/products", [getProducts]);
   app.get("/product/categories", [getProductCategories]);
 
   app.get("/product/request/verify", [isAuthenticated, verifyRequestAllowed]);
